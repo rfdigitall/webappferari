@@ -1,0 +1,982 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --n0:#0A1628;--n1:#0F1E38;--n2:#162440;--n3:#1E2D4A;--n4:#253558;
+  --a:#F59E0B;--a2:#D97706;--a3:#FCD34D;
+  --blue:#3B82F6;--green:#10B981;--red:#EF4444;--purple:#8B5CF6;--orange:#F97316;
+  --t1:#F1F5F9;--t2:#94A3B8;--t3:#64748B;--t4:#475569;
+  --r:12px;--r2:8px;--r3:20px
+}
+#app{background:var(--n0);min-height:600px;color:var(--t1);font-family:'Inter',system-ui,sans-serif;font-size:14px;max-width:430px;margin:0 auto;position:relative;overflow:hidden}
+.screen{display:none;flex-direction:column;min-height:600px}
+.screen.active{display:flex}
+
+/* BOTTOM NAV */
+.bnav{position:sticky;bottom:0;background:var(--n1);border-top:1px solid var(--n3);display:grid;grid-template-columns:repeat(5,1fr);z-index:100}
+.bn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0 8px;cursor:pointer;border:none;background:none;color:var(--t3);transition:color .2s;font-size:9px;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.bn svg{width:22px;height:22px;stroke-width:1.8}
+.bn.active{color:var(--a)}
+.bn span{margin-top:1px}
+
+/* TOP BAR */
+.topbar{background:var(--n1);padding:14px 16px 12px;border-bottom:1px solid var(--n3);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.topbar-title{font-size:16px;font-weight:700;color:var(--t1)}
+.topbar-sub{font-size:11px;color:var(--t2);margin-top:1px}
+.logo-pill{display:flex;align-items:center;gap:8px}
+.logo-sq{width:36px;height:36px;background:var(--a);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.badge{background:var(--n3);color:var(--a);font-size:10px;font-weight:700;padding:3px 9px;border-radius:var(--r3);font-family:monospace;letter-spacing:1px}
+
+/* SCROLL CONTENT */
+.scroll{flex:1;overflow-y:auto;padding:14px 14px 80px}
+.scroll::-webkit-scrollbar{display:none}
+
+/* CARDS */
+.card{background:var(--n2);border-radius:var(--r);border:1px solid var(--n3);padding:14px;margin-bottom:12px}
+.card-title{font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
+
+/* STAT CARDS */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.stat-card{background:var(--n2);border-radius:var(--r);border:1px solid var(--n3);padding:14px}
+.stat-val{font-size:24px;font-weight:800;margin-bottom:2px}
+.stat-lbl{font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.8px}
+.stat-trend{font-size:10px;margin-top:4px}
+
+/* FORM */
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.lbl{font-size:11px;color:var(--t2);font-weight:600;letter-spacing:.3px}
+.inp{background:var(--n3);border:1px solid var(--n4);border-radius:var(--r2);padding:10px 12px;color:var(--t1);font-size:13px;width:100%;outline:none;transition:border .15s;font-family:inherit}
+.inp:focus{border-color:var(--a)}
+.inp::placeholder{color:var(--t4)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+select.inp{appearance:none}
+
+/* BUTTONS */
+.btn{border:none;border-radius:var(--r2);padding:12px 16px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit;width:100%;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-amber{background:var(--a);color:var(--n0)}
+.btn-amber:hover{background:var(--a2)}
+.btn-ghost{background:transparent;color:var(--t1);border:1px solid var(--n4)}
+.btn-ghost:hover{border-color:var(--t2)}
+.btn-green{background:var(--green);color:#fff}
+.btn-wa{background:#25D366;color:#fff}
+.btn-sm{padding:7px 12px;font-size:12px;border-radius:6px;width:auto}
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-full{grid-column:1/-1}
+
+/* TIPO SPLIT */
+.tipo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.tipo-card{background:var(--n3);border:2px solid var(--n4);border-radius:var(--r);padding:14px 10px;cursor:pointer;text-align:center;transition:all .2s}
+.tipo-card.sel{border-color:var(--a);background:var(--n2)}
+.tipo-icon{font-size:26px;margin-bottom:6px}
+.tipo-name{font-size:13px;font-weight:700}
+.tipo-desc{font-size:10px;color:var(--t2);margin-top:3px}
+
+/* VOCI */
+.voce-row{background:var(--n3);border-radius:var(--r2);padding:10px;margin-bottom:8px;border:1px solid var(--n4)}
+.voce-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.voce-name{font-size:12px;font-weight:600;flex:1;margin-right:8px;line-height:1.4}
+.voce-tot{font-size:13px;font-weight:800;color:var(--a);white-space:nowrap}
+.mini-inp{width:100%;background:var(--n0);border:1px solid var(--n4);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;outline:none;text-align:right;font-family:inherit}
+.mini-inp:focus{border-color:var(--a)}
+.mini-lbl{font-size:9px;color:var(--t3);margin-bottom:3px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+
+/* TOTALE BOX */
+.totale-box{background:var(--n1);border:2px solid var(--a);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.totale-top{text-align:center;margin-bottom:12px}
+.totale-lbl{font-size:10px;color:var(--a);text-transform:uppercase;letter-spacing:1.5px;font-weight:700}
+.totale-num{font-size:36px;font-weight:900;letter-spacing:-1px;margin:4px 0}
+.totale-sub{font-size:10px;color:var(--t2)}
+.profit-row{background:#071A10;border:1px solid var(--green);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+.profit-lbl{font-size:11px;color:#34D399;font-weight:700}
+.profit-pct{font-size:10px;color:#6EE7B7;margin-top:2px}
+.profit-num{font-size:20px;font-weight:800;color:var(--green)}
+.costo-box{background:var(--n0);border:1px dashed var(--n4);border-radius:8px;padding:12px;margin-top:10px}
+.costo-lbl{font-size:10px;color:var(--t4);font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.priv-badge{background:var(--n2);color:var(--t3);font-size:9px;padding:2px 7px;border-radius:10px}
+
+/* PDF ACTIONS */
+.pdf-ready{background:var(--n2);border:1px solid var(--green);border-radius:var(--r);padding:14px;margin-bottom:12px;display:none}
+.pdf-ready.show{display:block}
+.pdf-ready-lbl{font-size:11px;color:#34D399;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
+
+/* CLIENTI */
+.search-bar{background:var(--n2);border:1px solid var(--n3);border-radius:var(--r2);padding:10px 14px;color:var(--t1);font-size:13px;width:100%;outline:none;margin-bottom:12px;font-family:inherit}
+.search-bar:focus{border-color:var(--a)}
+.search-bar::placeholder{color:var(--t3)}
+.cliente-card{background:var(--n2);border-radius:var(--r);border:1px solid var(--n3);padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border .15s;display:flex;align-items:center;gap:12px}
+.cliente-card:hover{border-color:var(--a)}
+.avatar{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0}
+.cliente-info h3{font-size:13px;font-weight:700;margin-bottom:3px}
+.cliente-info p{font-size:11px;color:var(--t2)}
+.cliente-meta{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap}
+.tag{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600}
+.tag-prev{background:#1E3A5F;color:#60A5FA}
+.tag-acc{background:#0D2E1E;color:#34D399}
+.tag-rif{background:#2E0D0D;color:#FC8181}
+
+/* STORICO */
+.prev-card{background:var(--n2);border-radius:var(--r);border:1px solid var(--n3);padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border .15s}
+.prev-card:hover{border-color:var(--a)}
+.prev-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.prev-num{font-size:10px;font-family:monospace;color:var(--a);font-weight:700;letter-spacing:1px}
+.prev-stato{font-size:10px;padding:3px 9px;border-radius:10px;font-weight:700}
+.stato-inviato{background:#1E3A5F;color:#60A5FA}
+.stato-accettato{background:#0D2E1E;color:#34D399}
+.stato-rifiutato{background:#2E0D0D;color:#FC8181}
+.stato-completato{background:#1E2D1E;color:#86EFAC}
+.stato-bozza{background:var(--n3);color:var(--t2)}
+.prev-cliente{font-size:13px;font-weight:700;margin-bottom:2px}
+.prev-meta{font-size:11px;color:var(--t2);display:flex;gap:10px}
+.prev-price{font-size:15px;font-weight:800;color:var(--a)}
+
+/* LISTINO */
+.listino-cat{font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:1px;padding:8px 0 6px;border-bottom:1px solid var(--n3);margin-bottom:8px}
+.listino-item{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--n3)}
+.li-name{font-size:13px;font-weight:500;flex:1}
+.li-um{font-size:11px;color:var(--t2);margin:0 10px}
+.li-price{font-size:13px;font-weight:700;color:var(--a);min-width:60px;text-align:right}
+.li-edit{background:none;border:none;color:var(--t3);cursor:pointer;padding:4px;font-size:14px}
+.li-add-btn{display:flex;align-items:center;gap:6px;background:none;border:1px dashed var(--n4);border-radius:var(--r2);padding:9px 12px;color:var(--t2);cursor:pointer;font-size:12px;font-family:inherit;width:100%;margin-top:8px;transition:border .15s}
+.li-add-btn:hover{border-color:var(--a);color:var(--a)}
+
+/* DASHBOARD */
+.dash-welcome{padding:16px 14px 0}
+.dash-name{font-size:22px;font-weight:800;margin-bottom:2px}
+.dash-date{font-size:12px;color:var(--t2)}
+.quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.qa{background:var(--n2);border-radius:var(--r);border:1px solid var(--n3);padding:16px 14px;cursor:pointer;transition:all .2s;text-align:center}
+.qa:hover{border-color:var(--a);transform:translateY(-1px)}
+.qa-icon{font-size:28px;margin-bottom:6px}
+.qa-label{font-size:12px;font-weight:700;color:var(--t1)}
+.qa-desc{font-size:10px;color:var(--t2);margin-top:2px}
+.recenti-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--n3);cursor:pointer}
+.recenti-item:last-child{border-bottom:none}
+.ri-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.ri-info{flex:1}
+.ri-name{font-size:13px;font-weight:600}
+.ri-meta{font-size:11px;color:var(--t2)}
+.ri-price{font-size:13px;font-weight:700;color:var(--a)}
+
+/* DETAIL PANEL */
+.detail-panel{position:absolute;top:0;left:0;right:0;bottom:0;background:var(--n0);z-index:200;display:none;flex-direction:column}
+.detail-panel.open{display:flex}
+.detail-header{background:var(--n1);padding:14px 16px;border-bottom:1px solid var(--n3);display:flex;align-items:center;gap:12px}
+.back-btn{background:none;border:none;color:var(--a);cursor:pointer;font-size:13px;font-weight:700;padding:4px 0;font-family:inherit}
+
+/* TOAST */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;padding:11px 20px;border-radius:var(--r3);font-size:13px;font-weight:700;z-index:999;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;max-width:300px;text-align:center}
+.toast.show{opacity:1}
+
+/* STATO SELECT */
+.stato-sel{appearance:none;background:var(--n3);border:1px solid var(--n4);border-radius:6px;padding:5px 10px;color:var(--t1);font-size:11px;font-weight:700;font-family:inherit;cursor:pointer}
+
+/* EMPTY */
+.empty{text-align:center;padding:40px 20px;color:var(--t2)}
+.empty-icon{font-size:42px;margin-bottom:10px;opacity:.4}
+.empty p{font-size:13px;line-height:1.6}
+
+/* ALERT */
+.alert{background:var(--n2);border-left:3px solid var(--a);border-radius:0 var(--r2) var(--r2) 0;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--t2)}
+</style>
+
+<div id="app">
+
+<!-- ═══ SCREEN: DASHBOARD ═══ -->
+<div class="screen active" id="s-dash">
+  <div class="dash-welcome">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:14px;border-bottom:1px solid var(--n3)">
+      <div>
+        <div class="dash-name">Ciao, Ferari 👋</div>
+        <div class="dash-date" id="dash-date"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:36px;height:36px;background:var(--a);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px">🏠</div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll">
+    <div class="stats-grid" style="margin-top:14px">
+      <div class="stat-card">
+        <div class="stat-val" style="color:var(--a)" id="d-tot-mese">€ 0</div>
+        <div class="stat-lbl">Fatturato mese</div>
+        <div class="stat-trend" style="color:var(--green)">● Questo mese</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" style="color:var(--blue)" id="d-n-prev">0</div>
+        <div class="stat-lbl">Preventivi totali</div>
+        <div class="stat-trend" style="color:var(--t2)" id="d-n-acc">0 accettati</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" style="color:var(--green)" id="d-n-cli">0</div>
+        <div class="stat-lbl">Clienti in rubrica</div>
+        <div class="stat-trend" style="color:var(--t2)">● Sempre disponibili</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" style="color:var(--purple)" id="d-profit">€ 0</div>
+        <div class="stat-lbl">Profitto stimato</div>
+        <div class="stat-trend" style="color:var(--t2)">● Uso interno</div>
+      </div>
+    </div>
+
+    <div class="card-title" style="margin-bottom:10px">Azioni rapide</div>
+    <div class="quick-actions">
+      <div class="qa" onclick="goScreen('s-nuovo');initNuovo()">
+        <div class="qa-icon">📋</div>
+        <div class="qa-label">Nuovo preventivo</div>
+        <div class="qa-desc">Dual o Mono Split</div>
+      </div>
+      <div class="qa" onclick="goScreen('s-clienti')">
+        <div class="qa-icon">👥</div>
+        <div class="qa-label">Rubrica clienti</div>
+        <div class="qa-desc">Cerca per nome</div>
+      </div>
+      <div class="qa" onclick="goScreen('s-storico')">
+        <div class="qa-icon">📂</div>
+        <div class="qa-label">Storico lavori</div>
+        <div class="qa-desc">Tutti i preventivi</div>
+      </div>
+      <div class="qa" onclick="goScreen('s-listino')">
+        <div class="qa-icon">🔧</div>
+        <div class="qa-label">Listino prezzi</div>
+        <div class="qa-desc">Materiali e voci</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Ultimi lavori</div>
+      <div id="dash-recenti"><div class="empty"><div class="empty-icon">📋</div><p>Nessun preventivo ancora.<br>Crea il primo!</p></div></div>
+    </div>
+  </div>
+  <div class="bnav" id="bnav-dash">
+    <button class="bn active" onclick="goScreen('s-dash')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>Home</span></button>
+    <button class="bn" onclick="goScreen('s-nuovo');initNuovo()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg><span>Nuovo</span></button>
+    <button class="bn" onclick="goScreen('s-clienti')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg><span>Clienti</span></button>
+    <button class="bn" onclick="goScreen('s-storico')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg><span>Storico</span></button>
+    <button class="bn" onclick="goScreen('s-listino')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span>Listino</span></button>
+  </div>
+</div>
+
+<!-- ═══ SCREEN: NUOVO PREVENTIVO ═══ -->
+<div class="screen" id="s-nuovo">
+  <div class="topbar">
+    <div><div class="topbar-title">Nuovo preventivo</div><div class="topbar-sub">Compila e invia in 2 minuti</div></div>
+    <div class="badge" id="num-prev-display">A001</div>
+  </div>
+  <div class="scroll">
+    <div style="margin-bottom:12px">
+      <div class="card-title">Tipo intervento</div>
+      <div class="tipo-grid">
+        <div class="tipo-card sel" id="tc-dual" onclick="selTipo('dual')">
+          <div class="tipo-icon">❄️</div>
+          <div class="tipo-name">Dual Split</div>
+          <div class="tipo-desc">2 camere + 1 motore est.</div>
+        </div>
+        <div class="tipo-card" id="tc-mono" onclick="selTipo('mono')">
+          <div class="tipo-icon">🌬️</div>
+          <div class="tipo-name">Mono Split</div>
+          <div class="tipo-desc">Salotto + 1 motore est.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Cliente</div>
+      <div class="field">
+        <div class="lbl">Nome / Ragione sociale *</div>
+        <input class="inp" id="c-nome" placeholder="Es. Mario Rossi" list="clienti-suggestions">
+        <datalist id="clienti-suggestions"></datalist>
+      </div>
+      <div class="row2">
+        <div class="field"><div class="lbl">Città</div><input class="inp" id="c-citta" placeholder="Chiasso"></div>
+        <div class="field"><div class="lbl">Telefono</div><input class="inp" id="c-tel" placeholder="+41..." type="tel"></div>
+      </div>
+      <div class="field"><div class="lbl">Indirizzo</div><input class="inp" id="c-ind" placeholder="Via / Str..."></div>
+      <div class="field"><div class="lbl">Email</div><input class="inp" id="c-email" placeholder="mario@..." type="email"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Voci di lavorazione</div>
+      <div id="voci-list"></div>
+    </div>
+
+    <div class="totale-box">
+      <div class="totale-top">
+        <div class="totale-lbl">Totale preventivo</div>
+        <div class="totale-num" id="tot-num">€ 0,00</div>
+        <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--n3)">
+          <span style="font-size:11px;color:var(--t2)">IVA</span>
+          <span style="font-size:12px;font-weight:600" id="iva-disp">Non esposta</span>
+        </div>
+        <div class="totale-sub" style="margin-top:6px">Valido 10 giorni dalla data di emissione</div>
+      </div>
+
+      <div class="costo-box">
+        <div class="costo-lbl">🔒 Uso interno <span class="priv-badge">NON APPARE NEL PDF</span></div>
+        <div class="field"><div class="lbl">Costo materiale (€)</div><input class="inp mini-inp" id="costo-mat" type="number" placeholder="0,00" step="0.01" oninput="calcProfit()" style="text-align:left"></div>
+      </div>
+
+      <div class="profit-row" id="profit-row" style="display:none">
+        <div><div class="profit-lbl">Profitto stimato</div><div class="profit-pct" id="profit-pct">—%</div></div>
+        <div class="profit-num" id="profit-num">€ 0</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="lbl">Note (opzionale)</div>
+      <textarea class="inp" id="c-note" rows="2" placeholder="Es. Intervento urgente, accesso da scale..."></textarea>
+    </div>
+
+    <div class="btn-grid" style="margin-bottom:10px">
+      <button class="btn btn-ghost" onclick="resetForm()">🗑 Azzera</button>
+      <button class="btn btn-amber" onclick="salvaPrev()">💾 Salva</button>
+      <button class="btn btn-amber btn-full" onclick="generaPDF()">📄 Genera PDF preventivo</button>
+    </div>
+
+    <div class="pdf-ready" id="pdf-ready-box">
+      <div class="pdf-ready-lbl">✅ PDF pronto — invia al cliente</div>
+      <div class="btn-grid">
+        <button class="btn btn-wa" onclick="inviaWA()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.558 4.121 1.533 5.851L0 24l6.335-1.652A11.957 11.957 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.794 9.794 0 01-4.961-1.346l-.357-.212-3.683.96.984-3.607-.231-.371A9.769 9.769 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182S21.818 6.57 21.818 12 17.43 21.818 12 21.818z"/></svg>
+          WhatsApp
+        </button>
+        <button class="btn btn-ghost" onclick="scaricaPDF()">⬇️ Scarica</button>
+      </div>
+    </div>
+  </div>
+  <div class="bnav">
+    <button class="bn" onclick="goScreen('s-dash')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>Home</span></button>
+    <button class="bn active" onclick="goScreen('s-nuovo');initNuovo()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg><span>Nuovo</span></button>
+    <button class="bn" onclick="goScreen('s-clienti')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg><span>Clienti</span></button>
+    <button class="bn" onclick="goScreen('s-storico')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg><span>Storico</span></button>
+    <button class="bn" onclick="goScreen('s-listino')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span>Listino</span></button>
+  </div>
+</div>
+
+<!-- ═══ SCREEN: CLIENTI ═══ -->
+<div class="screen" id="s-clienti">
+  <div class="topbar">
+    <div><div class="topbar-title">Rubrica clienti</div><div class="topbar-sub" id="cli-count">0 clienti salvati</div></div>
+    <button class="btn btn-amber btn-sm" onclick="openAddCliente()">+ Nuovo</button>
+  </div>
+  <div class="scroll">
+    <input class="search-bar" id="cli-search" placeholder="🔍 Cerca per nome, città, telefono..." oninput="filterClienti()">
+    <div id="clienti-list"></div>
+  </div>
+  <div class="bnav">
+    <button class="bn" onclick="goScreen('s-dash')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>Home</span></button>
+    <button class="bn" onclick="goScreen('s-nuovo');initNuovo()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg><span>Nuovo</span></button>
+    <button class="bn active" onclick="goScreen('s-clienti')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg><span>Clienti</span></button>
+    <button class="bn" onclick="goScreen('s-storico')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg><span>Storico</span></button>
+    <button class="bn" onclick="goScreen('s-listino')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span>Listino</span></button>
+  </div>
+</div>
+
+<!-- ═══ SCREEN: STORICO ═══ -->
+<div class="screen" id="s-storico">
+  <div class="topbar">
+    <div><div class="topbar-title">Storico preventivi</div><div class="topbar-sub" id="sto-count">0 preventivi</div></div>
+    <select class="stato-sel" id="sto-filter" onchange="renderStorico()">
+      <option value="">Tutti</option>
+      <option value="bozza">Bozze</option>
+      <option value="inviato">Inviati</option>
+      <option value="accettato">Accettati</option>
+      <option value="rifiutato">Rifiutati</option>
+      <option value="completato">Completati</option>
+    </select>
+  </div>
+  <div class="scroll">
+    <div id="storico-list"></div>
+  </div>
+  <div class="bnav">
+    <button class="bn" onclick="goScreen('s-dash')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>Home</span></button>
+    <button class="bn" onclick="goScreen('s-nuovo');initNuovo()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg><span>Nuovo</span></button>
+    <button class="bn" onclick="goScreen('s-clienti')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg><span>Clienti</span></button>
+    <button class="bn active" onclick="goScreen('s-storico')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg><span>Storico</span></button>
+    <button class="bn" onclick="goScreen('s-listino')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span>Listino</span></button>
+  </div>
+</div>
+
+<!-- ═══ SCREEN: LISTINO ═══ -->
+<div class="screen" id="s-listino">
+  <div class="topbar">
+    <div><div class="topbar-title">Listino prezzi</div><div class="topbar-sub">Tap per modificare</div></div>
+    <button class="btn btn-amber btn-sm" onclick="openAddVoce()">+ Voce</button>
+  </div>
+  <div class="scroll" id="listino-content"></div>
+  <div class="bnav">
+    <button class="bn" onclick="goScreen('s-dash')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>Home</span></button>
+    <button class="bn" onclick="goScreen('s-nuovo');initNuovo()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg><span>Nuovo</span></button>
+    <button class="bn" onclick="goScreen('s-clienti')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg><span>Clienti</span></button>
+    <button class="bn" onclick="goScreen('s-storico')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg><span>Storico</span></button>
+    <button class="bn active" onclick="goScreen('s-listino')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span>Listino</span></button>
+  </div>
+</div>
+
+<!-- ═══ PANEL: DETTAGLIO CLIENTE ═══ -->
+<div class="detail-panel" id="panel-cliente">
+  <div class="detail-header">
+    <button class="back-btn" onclick="closePanel('panel-cliente')">← Indietro</button>
+    <div style="flex:1;margin-left:8px"><div class="topbar-title" id="pc-title">Cliente</div></div>
+    <button class="btn btn-amber btn-sm" onclick="newPrevForCliente()">+ Preventivo</button>
+  </div>
+  <div class="scroll" id="pc-content"></div>
+</div>
+
+<!-- ═══ PANEL: ADD CLIENTE ═══ -->
+<div class="detail-panel" id="panel-add-cliente">
+  <div class="detail-header">
+    <button class="back-btn" onclick="closePanel('panel-add-cliente')">← Annulla</button>
+    <div style="flex:1;margin-left:8px"><div class="topbar-title">Nuovo cliente</div></div>
+  </div>
+  <div class="scroll">
+    <div class="card">
+      <div class="field"><div class="lbl">Nome *</div><input class="inp" id="nc-nome" placeholder="Mario Rossi"></div>
+      <div class="row2">
+        <div class="field"><div class="lbl">Città</div><input class="inp" id="nc-citta" placeholder="Chiasso"></div>
+        <div class="field"><div class="lbl">Telefono</div><input class="inp" id="nc-tel" placeholder="+41..." type="tel"></div>
+      </div>
+      <div class="field"><div class="lbl">Indirizzo</div><input class="inp" id="nc-ind" placeholder="Via..."></div>
+      <div class="field"><div class="lbl">Email</div><input class="inp" id="nc-email" placeholder="mario@..." type="email"></div>
+      <div class="field"><div class="lbl">Note</div><textarea class="inp" id="nc-note" rows="2" placeholder="Es. Cliente preferisce mattina..."></textarea></div>
+    </div>
+    <button class="btn btn-amber" onclick="salvaCliente()" style="margin-bottom:20px">💾 Salva cliente</button>
+  </div>
+</div>
+
+<!-- ═══ PANEL: ADD VOCE LISTINO ═══ -->
+<div class="detail-panel" id="panel-add-voce">
+  <div class="detail-header">
+    <button class="back-btn" onclick="closePanel('panel-add-voce')">← Annulla</button>
+    <div style="flex:1;margin-left:8px"><div class="topbar-title">Nuova voce listino</div></div>
+  </div>
+  <div class="scroll">
+    <div class="card">
+      <div class="field"><div class="lbl">Descrizione *</div><input class="inp" id="nv-nome" placeholder="Es. Posa tubazione refrigerante"></div>
+      <div class="row2">
+        <div class="field"><div class="lbl">Unità misura</div><select class="inp" id="nv-um"><option>m</option><option>pz</option><option>h</option><option>kg</option><option>ml</option></select></div>
+        <div class="field"><div class="lbl">Prezzo unitario €</div><input class="inp" id="nv-prezzo" type="number" placeholder="0.00" step="0.5"></div>
+      </div>
+      <div class="field"><div class="lbl">Categoria</div>
+        <select class="inp" id="nv-cat">
+          <option value="Manodopera">Manodopera</option>
+          <option value="Materiale">Materiale</option>
+          <option value="Tubazioni">Tubazioni</option>
+          <option value="Elettrico">Elettrico</option>
+          <option value="Altro">Altro</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-amber" onclick="salvaVoce()" style="margin-bottom:20px">💾 Aggiungi al listino</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+// ═══ DATA ═══
+const LS={
+  get:(k,d)=>{try{return JSON.parse(localStorage.getItem(k))||d}catch{return d}},
+  set:(k,v)=>localStorage.setItem(k,JSON.stringify(v))
+};
+
+let storico=LS.get('fi_storico',[]);
+let clienti=LS.get('fi_clienti',[]);
+let listino=LS.get('fi_listino',defaultListino());
+let counter=LS.get('fi_counter',0);
+let settings=LS.get('fi_settings',{nome:'FERARI IMPIANTI',iva:'non_esposta'});
+let tipoSel='dual';
+let lastBlob=null;
+let lastFilename='';
+
+function defaultListino(){return[
+  {id:'d1',nome:'Fori passanti su muratura',um:'pz',prezzo:50,cat:'Manodopera'},
+  {id:'d2',nome:'Canalizzazione esterna a vista',um:'m',prezzo:18,cat:'Materiale'},
+  {id:'d3',nome:'Cavo multipolare FROR 1,5mm²',um:'m',prezzo:3.5,cat:'Elettrico'},
+  {id:'d4',nome:'Linea elettrica dedicata 2,5mm²',um:'m',prezzo:4,cat:'Elettrico'},
+  {id:'d5',nome:'Staffaggio supporto motore esterno',um:'pz',prezzo:120,cat:'Materiale'},
+  {id:'d6',nome:'Fissaggio unità interna (split)',um:'pz',prezzo:60,cat:'Manodopera'},
+  {id:'d7',nome:'Posa tubazione refrigerante',um:'m',prezzo:22,cat:'Tubazioni'},
+  {id:'d8',nome:'Collegamento e raccordatura tubaz.',um:'pz',prezzo:160,cat:'Manodopera'},
+  {id:'d9',nome:'Cablaggio elettrico completo',um:'pz',prezzo:130,cat:'Elettrico'},
+  {id:'d10',nome:'Collaudo e prova tenuta impianto',um:'pz',prezzo:70,cat:'Manodopera'},
+  {id:'d11',nome:'Motore esterno (unità esterna)',um:'pz',prezzo:450,cat:'Materiale'},
+  {id:'d12',nome:'Unità interna (split)',um:'pz',prezzo:280,cat:'Materiale'},
+  {id:'d13',nome:'Scarico condensa',um:'m',prezzo:8,cat:'Tubazioni'},
+  {id:'d14',nome:'Gas refrigerante R32 (ricarica)',um:'pz',prezzo:80,cat:'Materiale'},
+  {id:'d15',nome:'Ore di manodopera extra',um:'h',prezzo:45,cat:'Manodopera'},
+]}
+
+// Template configurazioni voci per tipo
+const TMPL_DUAL=[
+  {id:'d1',qta:2},{id:'d2',qta:6},{id:'d3',qta:40},{id:'d4',qta:90},
+  {id:'d5',qta:1},{id:'d6',qta:2},{id:'d7',qta:20},{id:'d8',qta:1},
+  {id:'d9',qta:1},{id:'d10',qta:1}
+];
+const TMPL_MONO=[
+  {id:'d1',qta:1},{id:'d2',qta:4},{id:'d3',qta:20},{id:'d4',qta:60},
+  {id:'d5',qta:1},{id:'d6',qta:1},{id:'d7',qta:10},{id:'d8',qta:1},
+  {id:'d9',qta:1},{id:'d10',qta:1}
+];
+
+let voceState={};
+
+// ═══ NAVIGATION ═══
+function goScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='s-dash')updateDash();
+  if(id==='s-clienti')renderClienti();
+  if(id==='s-storico')renderStorico();
+  if(id==='s-listino')renderListino();
+}
+
+function openPanel(id){document.getElementById(id).classList.add('open')}
+function closePanel(id){document.getElementById(id).classList.remove('open')}
+
+// ═══ UTILS ═══
+function fmt(n){return (n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function getNextNum(){counter++;LS.set('fi_counter',counter);return 'A'+String(counter).padStart(3,'0')}
+function toast(msg,clr){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.style.background=clr||'var(--green)';
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+function avatarColor(name){
+  const c=['#3B82F6','#8B5CF6','#F97316','#10B981','#EF4444','#F59E0B'];
+  return c[(name||'?').charCodeAt(0)%c.length];
+}
+function initials(name){return (name||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)}
+
+// ═══ DASHBOARD ═══
+function updateDash(){
+  const now=new Date();
+  document.getElementById('dash-date').textContent=now.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const mese=now.getMonth(),anno=now.getFullYear();
+  const prevMese=storico.filter(p=>{const d=new Date(p.dataRaw||p.data);return d.getMonth()===mese&&d.getFullYear()===anno});
+  const totMese=prevMese.reduce((s,p)=>s+p.totale,0);
+  const acc=storico.filter(p=>p.stato==='accettato').length;
+  const profit=storico.reduce((s,p)=>s+(p.profitStimato||0),0);
+  document.getElementById('d-tot-mese').textContent='€ '+fmt(totMese);
+  document.getElementById('d-n-prev').textContent=storico.length;
+  document.getElementById('d-n-acc').textContent=acc+' accettati';
+  document.getElementById('d-n-cli').textContent=clienti.length;
+  document.getElementById('d-profit').textContent='€ '+fmt(profit);
+  // Recenti
+  const rc=document.getElementById('dash-recenti');
+  if(!storico.length){rc.innerHTML='<div class="empty"><div class="empty-icon">📋</div><p>Nessun preventivo ancora.</p></div>';return;}
+  rc.innerHTML=storico.slice(0,5).map(p=>`
+    <div class="recenti-item" onclick="apriDettaglioPrev(${storico.indexOf(p)})">
+      <div class="ri-dot" style="background:${statoColor(p.stato||'bozza')}"></div>
+      <div class="ri-info">
+        <div class="ri-name">${p.cliente?.nome||'—'}</div>
+        <div class="ri-meta">${p.numero} · ${p.data} · ${tipoLabel(p.tipo)}</div>
+      </div>
+      <div class="ri-price">€ ${fmt(p.totale)}</div>
+    </div>`).join('');
+  // Autocomplete clienti nel form
+  const dl=document.getElementById('clienti-suggestions');
+  if(dl)dl.innerHTML=clienti.map(c=>`<option value="${c.nome}">`).join('');
+}
+
+function statoColor(s){
+  return{bozza:'var(--t3)',inviato:'var(--blue)',accettato:'var(--green)',rifiutato:'var(--red)',completato:'#86EFAC'}[s]||'var(--t3)';
+}
+function tipoLabel(t){return t==='dual'?'Dual Split':'Mono Split'}
+
+// ═══ NUOVO PREVENTIVO ═══
+function initNuovo(){
+  document.getElementById('num-prev-display').textContent=getNextNum();
+  document.getElementById('pdf-ready-box').classList.remove('show');
+  document.getElementById('profit-row').style.display='none';
+  lastBlob=null;
+  selTipo('dual');
+}
+
+function selTipo(t){
+  tipoSel=t;
+  document.getElementById('tc-dual').classList.toggle('sel',t==='dual');
+  document.getElementById('tc-mono').classList.toggle('sel',t==='mono');
+  buildVoci();
+}
+
+function buildVoci(){
+  const tmpl=tipoSel==='dual'?TMPL_DUAL:TMPL_MONO;
+  voceState={};
+  const c=document.getElementById('voci-list');
+  c.innerHTML='';
+  tmpl.forEach(tv=>{
+    const voce=listino.find(v=>v.id===tv.id);
+    if(!voce)return;
+    voceState[tv.id]={qta:tv.qta,pu:voce.prezzo,extra:0};
+    const div=document.createElement('div');
+    div.className='voce-row';
+    div.innerHTML=`
+      <div class="voce-top">
+        <div class="voce-name">${voce.nome}</div>
+        <div class="voce-tot" id="vt-${tv.id}">€ ${fmt(tv.qta*voce.prezzo)}</div>
+      </div>
+      <div class="row3">
+        <div><div class="mini-lbl">Qtà / ${voce.um}</div><input class="mini-inp" type="number" value="${tv.qta}" step="0.5" oninput="updateVoce('${tv.id}','qta',this.value)"></div>
+        <div><div class="mini-lbl">€ / ${voce.um}</div><input class="mini-inp" type="number" value="${voce.prezzo}" step="0.5" oninput="updateVoce('${tv.id}','pu',this.value)"></div>
+        <div><div class="mini-lbl">Extra €</div><input class="mini-inp" type="number" value="0" step="1" placeholder="0" oninput="updateVoce('${tv.id}','extra',this.value)"></div>
+      </div>`;
+    c.appendChild(div);
+  });
+  calcTotale();
+}
+
+function updateVoce(id,field,val){
+  voceState[id][field]=parseFloat(val)||0;
+  const v=voceState[id];
+  document.getElementById('vt-'+id).textContent='€ '+fmt(v.qta*v.pu+v.extra);
+  calcTotale();
+}
+
+function calcTotale(){
+  let tot=0;
+  Object.values(voceState).forEach(v=>tot+=v.qta*v.pu+v.extra);
+  document.getElementById('tot-num').textContent='€ '+fmt(tot);
+  calcProfit();
+}
+
+function getTotale(){
+  let t=0;Object.values(voceState).forEach(v=>t+=v.qta*v.pu+v.extra);return t;
+}
+
+function calcProfit(){
+  const tot=getTotale();
+  const costo=parseFloat(document.getElementById('costo-mat').value)||0;
+  const row=document.getElementById('profit-row');
+  if(costo>0){
+    const prof=tot-costo;
+    const pct=tot>0?((prof/tot)*100).toFixed(1):0;
+    document.getElementById('profit-num').textContent=(prof>=0?'€ '+fmt(prof):'- € '+fmt(Math.abs(prof)));
+    document.getElementById('profit-num').style.color=prof>=0?'var(--green)':'var(--red)';
+    document.getElementById('profit-pct').textContent=pct+'% di margine';
+    row.style.display='flex';
+  } else {row.style.display='none';}
+}
+
+function raccogliDati(){
+  const tmpl=tipoSel==='dual'?TMPL_DUAL:TMPL_MONO;
+  const righe=tmpl.map(tv=>{
+    const voce=listino.find(v=>v.id===tv.id);
+    const vs=voceState[tv.id]||{qta:0,pu:0,extra:0};
+    return{nome:voce?.nome||'',qta:vs.qta,um:voce?.um||'pz',pu:vs.pu,extra:vs.extra};
+  });
+  const costo=parseFloat(document.getElementById('costo-mat').value)||0;
+  const tot=getTotale();
+  return{
+    numero:document.getElementById('num-prev-display').textContent,
+    data:new Date().toLocaleDateString('it-IT'),
+    dataRaw:new Date().toISOString(),
+    tipo:tipoSel,
+    stato:'bozza',
+    cliente:{nome:document.getElementById('c-nome').value,citta:document.getElementById('c-citta').value,tel:document.getElementById('c-tel').value,ind:document.getElementById('c-ind').value,email:document.getElementById('c-email').value},
+    note:document.getElementById('c-note').value,
+    righe,totale:tot,costoMat:costo,
+    profitStimato:costo>0?tot-costo:0
+  };
+}
+
+function salvaPrev(){
+  if(!document.getElementById('c-nome').value){toast('Inserisci il nome del cliente!','var(--red)');return;}
+  const d=raccogliDati();
+  storico.unshift(d);LS.set('fi_storico',storico);
+  // Auto-save cliente se non esiste
+  if(!clienti.find(c=>c.nome===d.cliente.nome)&&d.cliente.nome){
+    clienti.unshift({...d.cliente,note:'',creato:new Date().toLocaleDateString('it-IT')});
+    LS.set('fi_clienti',clienti);
+  }
+  toast('Preventivo '+d.numero+' salvato ✓');
+}
+
+function generaPDF(){
+  if(!window.jspdf){toast('PDF in caricamento...','var(--a)');return;}
+  const d=raccogliDati();
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  const W=210,m=18;
+
+  doc.setFillColor(10,22,40);doc.rect(0,0,W,44,'F');
+  doc.setFillColor(245,158,11);doc.rect(0,42,W,3,'F');
+  doc.setFontSize(20);doc.setFont('helvetica','bold');doc.setTextColor(245,158,11);
+  doc.text('FERARI IMPIANTI',m,18);
+  doc.setFontSize(8.5);doc.setFont('helvetica','normal');doc.setTextColor(148,163,184);
+  const s=settings;
+  if(s.ind)doc.text(s.ind,m,26);
+  if(s.tel)doc.text('Tel: '+s.tel,m,32);
+  if(s.email)doc.text(s.email,m,38);
+  doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);doc.setFontSize(9);doc.text('PREVENTIVO',W-m,17,{align:'right'});
+  doc.setFont('helvetica','normal');doc.setTextColor(148,163,184);doc.setFontSize(8.5);
+  doc.text('N° '+d.numero,W-m,24,{align:'right'});
+  doc.text('Data: '+d.data,W-m,30,{align:'right'});
+  doc.text('Valido 10 giorni',W-m,36,{align:'right'});
+
+  let y=52;
+  doc.setFillColor(22,36,64);doc.rect(m-2,y-5,W-2*m+4,26,'F');
+  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(245,158,11);doc.text('CLIENTE',m+2,y);
+  doc.setFont('helvetica','normal');doc.setTextColor(255,255,255);doc.setFontSize(11);doc.text(d.cliente.nome||'—',m+2,y+7);
+  doc.setFontSize(8.5);doc.setTextColor(148,163,184);
+  if(d.cliente.ind)doc.text(d.cliente.ind,m+2,y+13);
+  const ct=[d.cliente.citta,d.cliente.tel].filter(Boolean).join(' · ');
+  if(ct)doc.text(ct,m+2,y+19);
+
+  y+=33;
+  doc.setFillColor(10,22,40);doc.rect(m-2,y-4,W-2*m+4,8,'F');
+  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(245,158,11);
+  doc.text('LAVORI: '+(d.tipo==='dual'?'DUAL SPLIT — 2 CAMERE DA LETTO + 1 MOTORE ESTERNO':'MONO SPLIT — SALOTTO + 1 MOTORE ESTERNO'),m+2,y);
+
+  y+=10;
+  doc.setFillColor(22,36,64);doc.rect(m-2,y-4,W-2*m+4,7,'F');
+  doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(148,163,184);
+  doc.text('DESCRIZIONE',m+2,y);doc.text('QTÀ',m+88,y,{align:'right'});doc.text('€/U.',m+112,y,{align:'right'});doc.text('TOTALE',W-m-2,y,{align:'right'});
+  y+=5;
+  let alt=false;
+  d.righe.forEach(r=>{
+    if(y>270){doc.addPage();y=20;}
+    if(alt){doc.setFillColor(22,36,64);doc.rect(m-2,y-3.5,W-2*m+4,7,'F');}alt=!alt;
+    const rt=r.qta*r.pu+r.extra;
+    doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(220,220,220);
+    doc.text(r.nome,m+2,y,{maxWidth:82});
+    doc.text(r.qta+' '+r.um,m+88,y,{align:'right'});
+    doc.text('€ '+r.pu.toFixed(2),m+112,y,{align:'right'});
+    doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+    doc.text('€ '+fmt(rt),W-m-2,y,{align:'right'});
+    y+=7;
+  });
+  if(d.note){y+=4;doc.setFontSize(8);doc.setFont('helvetica','italic');doc.setTextColor(148,163,184);doc.text('Note: '+d.note,m,y,{maxWidth:W-2*m});}
+  y+=8;
+  doc.setFillColor(245,158,11);doc.rect(m-2,y-4,W-2*m+4,15,'F');
+  doc.setFontSize(13);doc.setFont('helvetica','bold');doc.setTextColor(10,22,40);
+  doc.text('TOTALE  € '+fmt(d.totale),W/2,y+6,{align:'center'});
+  y+=22;
+  doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(100,116,139);
+  doc.text('Il totale comprende materiale e manodopera · IVA non esposta',W/2,y,{align:'center'});
+  doc.text('Preventivo valido 10 giorni dalla data di emissione a causa di variazioni dei costi del materiale.',W/2,y+5,{align:'center'});
+
+  lastBlob=doc.output('blob');
+  lastFilename='Preventivo_'+d.numero+'_'+(d.cliente.nome||'cliente').replace(/\s+/g,'_')+'.pdf';
+  const url=URL.createObjectURL(lastBlob);
+  const a=document.createElement('a');a.href=url;a.download=lastFilename;a.click();
+  document.getElementById('pdf-ready-box').classList.add('show');
+  toast('PDF generato ✓');
+}
+
+function scaricaPDF(){if(!lastBlob){toast('Genera prima il PDF','var(--red)');return;}const url=URL.createObjectURL(lastBlob);const a=document.createElement('a');a.href=url;a.download=lastFilename;a.click();}
+
+function inviaWA(){
+  const tel=(document.getElementById('c-tel').value||'').replace(/\s+/g,'').replace(/^\+/,'');
+  const az=settings.nome||'FERARI IMPIANTI';
+  const msg=encodeURIComponent('Buongiorno,\n\nIn allegato troverà il preventivo richiesto.\n\nResto a disposizione per qualsiasi chiarimento.\n\nCordiali saluti,\n'+az);
+  window.open((tel?'https://wa.me/'+tel:'https://wa.me/')+'?text='+msg,'_blank');
+  toast('Apertura WhatsApp...');
+}
+
+function resetForm(){
+  ['c-nome','c-citta','c-tel','c-ind','c-email','c-note','costo-mat'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('pdf-ready-box').classList.remove('show');
+  document.getElementById('profit-row').style.display='none';
+  lastBlob=null;
+  document.getElementById('num-prev-display').textContent=getNextNum();
+  selTipo('dual');
+}
+
+// ═══ CLIENTI ═══
+function renderClienti(filter){
+  const q=(filter||document.getElementById('cli-search')?.value||'').toLowerCase();
+  const list=q?clienti.filter(c=>(c.nome+c.citta+c.tel+c.ind).toLowerCase().includes(q)):clienti;
+  document.getElementById('cli-count').textContent=clienti.length+' clienti salvati';
+  const c=document.getElementById('clienti-list');
+  if(!list.length){c.innerHTML='<div class="empty"><div class="empty-icon">👥</div><p>'+(q?'Nessun cliente trovato.':'Rubrica vuota.<br>Aggiungi il primo cliente!')+'</p></div>';return;}
+  c.innerHTML=list.map(cl=>{
+    const nPrev=storico.filter(p=>p.cliente?.nome===cl.nome).length;
+    const color=avatarColor(cl.nome);
+    return`<div class="cliente-card" onclick="openCliente('${cl.nome}')">
+      <div class="avatar" style="background:${color}22;color:${color}">${initials(cl.nome)}</div>
+      <div class="cliente-info" style="flex:1">
+        <h3>${cl.nome}</h3>
+        <p>${[cl.citta,cl.tel].filter(Boolean).join(' · ')||'—'}</p>
+        <div class="cliente-meta">
+          ${nPrev?`<span class="tag tag-prev">${nPrev} preventiv${nPrev>1?'i':'o'}</span>`:''}
+          ${cl.note?`<span class="tag" style="background:var(--n3);color:var(--t2)">📝 Note</span>`:''}
+        </div>
+      </div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>`;
+  }).join('');
+}
+
+function filterClienti(){renderClienti(document.getElementById('cli-search').value)}
+
+function openCliente(nome){
+  const cl=clienti.find(c=>c.nome===nome);
+  if(!cl)return;
+  const color=avatarColor(cl.nome);
+  const prev=storico.filter(p=>p.cliente?.nome===cl.nome);
+  document.getElementById('pc-title').textContent=cl.nome;
+  document.getElementById('pc-content').innerHTML=`
+    <div style="text-align:center;padding:24px 0 16px">
+      <div class="avatar" style="width:64px;height:64px;background:${color}22;color:${color};font-size:22px;margin:0 auto 12px">${initials(cl.nome)}</div>
+      <div style="font-size:18px;font-weight:800;margin-bottom:4px">${cl.nome}</div>
+      <div style="font-size:12px;color:var(--t2)">${cl.citta||''}</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Contatti</div>
+      ${cl.tel?`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--n3)"><span style="color:var(--t2);font-size:13px">📞 Telefono</span><a href="tel:${cl.tel}" style="color:var(--a);font-size:13px;font-weight:600;text-decoration:none">${cl.tel}</a></div>`:''}
+      ${cl.email?`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--n3)"><span style="color:var(--t2);font-size:13px">✉️ Email</span><a href="mailto:${cl.email}" style="color:var(--a);font-size:13px;font-weight:600;text-decoration:none">${cl.email}</a></div>`:''}
+      ${cl.ind?`<div style="display:flex;justify-content:space-between;padding:9px 0"><span style="color:var(--t2);font-size:13px">📍 Indirizzo</span><span style="font-size:13px;text-align:right;max-width:60%">${cl.ind}</span></div>`:''}
+    </div>
+    ${cl.note?`<div class="alert">📝 ${cl.note}</div>`:''}
+    <div class="card">
+      <div class="card-title">Preventivi (${prev.length})</div>
+      ${prev.length?prev.map(p=>`
+        <div class="prev-card" style="margin-bottom:8px" onclick="">
+          <div class="prev-top"><span class="prev-num">${p.numero}</span><span class="prev-stato stato-${p.stato||'bozza'}">${(p.stato||'bozza').charAt(0).toUpperCase()+(p.stato||'bozza').slice(1)}</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:var(--t2)">${p.data} · ${tipoLabel(p.tipo)}</span>
+            <span class="prev-price">€ ${fmt(p.totale)}</span>
+          </div>
+        </div>`).join(''):'<div style="color:var(--t2);font-size:13px">Nessun preventivo ancora.</div>'}
+    </div>
+  `;
+  openPanel('panel-cliente');
+}
+
+function openAddCliente(){
+  ['nc-nome','nc-citta','nc-tel','nc-ind','nc-email','nc-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  openPanel('panel-add-cliente');
+}
+
+function salvaCliente(){
+  const nome=document.getElementById('nc-nome').value.trim();
+  if(!nome){toast('Inserisci il nome','var(--red)');return;}
+  if(clienti.find(c=>c.nome===nome)){toast('Cliente già in rubrica','var(--a)');return;}
+  clienti.unshift({nome,citta:document.getElementById('nc-citta').value,tel:document.getElementById('nc-tel').value,ind:document.getElementById('nc-ind').value,email:document.getElementById('nc-email').value,note:document.getElementById('nc-note').value,creato:new Date().toLocaleDateString('it-IT')});
+  LS.set('fi_clienti',clienti);
+  closePanel('panel-add-cliente');
+  renderClienti();
+  toast('Cliente salvato ✓');
+}
+
+function newPrevForCliente(){
+  const nome=document.getElementById('pc-title').textContent;
+  const cl=clienti.find(c=>c.nome===nome);
+  closePanel('panel-cliente');
+  goScreen('s-nuovo');initNuovo();
+  if(cl){
+    setTimeout(()=>{
+      document.getElementById('c-nome').value=cl.nome||'';
+      document.getElementById('c-citta').value=cl.citta||'';
+      document.getElementById('c-tel').value=cl.tel||'';
+      document.getElementById('c-ind').value=cl.ind||'';
+      document.getElementById('c-email').value=cl.email||'';
+    },50);
+  }
+}
+
+// ═══ STORICO ═══
+function renderStorico(){
+  const filter=document.getElementById('sto-filter')?.value||'';
+  const list=filter?storico.filter(p=>p.stato===filter):storico;
+  document.getElementById('sto-count').textContent=storico.length+' preventivi';
+  const c=document.getElementById('storico-list');
+  if(!list.length){c.innerHTML='<div class="empty"><div class="empty-icon">📂</div><p>'+(filter?'Nessun preventivo con questo stato.':'Nessun preventivo salvato.')+'</p></div>';return;}
+  c.innerHTML=list.map((p,i)=>`
+    <div class="prev-card" onclick="apriDettaglioPrev(${storico.indexOf(p)})">
+      <div class="prev-top">
+        <span class="prev-num">${p.numero}</span>
+        <select class="stato-sel" onclick="event.stopPropagation()" onchange="cambiaStato(${storico.indexOf(p)},this.value)">
+          ${['bozza','inviato','accettato','rifiutato','completato'].map(s=>`<option value="${s}"${p.stato===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="prev-cliente">${p.cliente?.nome||'—'}</div>
+      <div class="prev-meta">
+        <span>${p.data}</span>
+        <span>${tipoLabel(p.tipo)}</span>
+        ${p.cliente?.citta?`<span>${p.cliente.citta}</span>`:''}
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+        <span class="prev-stato stato-${p.stato||'bozza'}">${(p.stato||'bozza').charAt(0).toUpperCase()+(p.stato||'bozza').slice(1)}</span>
+        <span class="prev-price">€ ${fmt(p.totale)}</span>
+      </div>
+    </div>`).join('');
+}
+
+function cambiaStato(idx,stato){
+  storico[idx].stato=stato;
+  LS.set('fi_storico',storico);
+  toast('Stato aggiornato: '+stato);
+}
+
+function apriDettaglioPrev(idx){
+  goScreen('s-storico');
+}
+
+// ═══ LISTINO ═══
+function renderListino(){
+  const cats=[...new Set(listino.map(v=>v.cat))];
+  const c=document.getElementById('listino-content');
+  c.innerHTML='<div class="alert">💡 Modifica i prezzi qui — si aggiornano automaticamente nei nuovi preventivi.</div>'+cats.map(cat=>`
+    <div class="card" style="margin-bottom:10px">
+      <div class="listino-cat">${cat}</div>
+      ${listino.filter(v=>v.cat===cat).map(v=>`
+        <div class="listino-item">
+          <div class="li-name">${v.nome}</div>
+          <div class="li-um">${v.um}</div>
+          <input class="mini-inp li-price" type="number" value="${v.prezzo}" step="0.5" onchange="updatePrezzo('${v.id}',this.value)" style="width:70px;text-align:right;background:var(--n0);border:1px solid var(--n4);border-radius:6px;padding:5px 8px;color:var(--a);font-weight:700;font-size:13px;font-family:inherit">
+          <button class="li-edit" onclick="eliminaVoce('${v.id}')">🗑</button>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+function updatePrezzo(id,val){
+  const v=listino.find(x=>x.id===id);
+  if(v){v.prezzo=parseFloat(val)||0;LS.set('fi_listino',listino);toast('Prezzo aggiornato ✓');}
+}
+
+function eliminaVoce(id){
+  listino=listino.filter(v=>v.id!==id);LS.set('fi_listino',listino);renderListino();toast('Voce eliminata');
+}
+
+function openAddVoce(){
+  ['nv-nome'].forEach(id=>document.getElementById(id).value='');
+  openPanel('panel-add-voce');
+}
+
+function salvaVoce(){
+  const nome=document.getElementById('nv-nome').value.trim();
+  if(!nome){toast('Inserisci la descrizione','var(--red)');return;}
+  const newV={id:'c'+Date.now(),nome,um:document.getElementById('nv-um').value,prezzo:parseFloat(document.getElementById('nv-prezzo').value)||0,cat:document.getElementById('nv-cat').value};
+  listino.push(newV);LS.set('fi_listino',listino);
+  closePanel('panel-add-voce');renderListino();
+  toast('Voce aggiunta al listino ✓');
+}
+
+// ═══ INIT ═══
+document.getElementById('dash-date').textContent=new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+updateDash();
+initNuovo();
+
+// Demo data se primo avvio
+if(!storico.length&&!clienti.length){
+  clienti=[
+    {nome:'Marco Bianchi',citta:'Chiasso',tel:'+41 79 123 4567',ind:'Via Lugano 12',email:'m.bianchi@email.com',note:'Preferisce appuntamenti il mattino',creato:'10/06/2026'},
+    {nome:'Stefano Magnani',citta:'Lugano',tel:'+41 91 234 5678',ind:'Corso Elvezia 8',email:'',note:'',creato:'15/06/2026'},
+    {nome:'Angela Rossi',citta:'Bellinzona',tel:'+39 333 987 6543',ind:'Via Roma 45',email:'a.rossi@gmail.com',note:'',creato:'18/06/2026'},
+  ];
+  LS.set('fi_clienti',clienti);
+  storico=[
+    {numero:'A001',data:'10/06/2026',dataRaw:'2026-06-10',tipo:'dual',stato:'completato',cliente:{nome:'Marco Bianchi',citta:'Chiasso',tel:'+41 79 123 4567',ind:'Via Lugano 12'},totale:1850,costoMat:900,profitStimato:950,righe:[]},
+    {numero:'A002',data:'15/06/2026',dataRaw:'2026-06-15',tipo:'mono',stato:'accettato',cliente:{nome:'Stefano Magnani',citta:'Lugano',tel:'+41 91 234 5678',ind:'Corso Elvezia 8'},totale:980,costoMat:420,profitStimato:560,righe:[]},
+    {numero:'A003',data:'20/06/2026',dataRaw:'2026-06-20',tipo:'dual',stato:'inviato',cliente:{nome:'Angela Rossi',citta:'Bellinzona',tel:'+39 333 987 6543',ind:'Via Roma 45'},totale:1600,costoMat:0,profitStimato:0,righe:[]},
+  ];
+  LS.set('fi_storico',storico);
+  updateDash();
+}
+</script>
