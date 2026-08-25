@@ -143,7 +143,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // numero con quello del file appena pubblicato online e, se sono diversi,
 // avvisa l'utente che c'è una versione nuova invece di restare bloccato
 // sulla vecchia copia in cache del telefono.
-const APP_VERSION = '202608251800';
+const APP_VERSION = '202608252000';
 
 /* ============================================================
    GOOGLE CALENDAR (Fase 7) — modulo isolato e opzionale.
@@ -2009,12 +2009,10 @@ function StatCard({ label, value, delta, icon: Icon, accent }) {
 
 function DashboardCards({ preventivi, clienti }) {
   const valoreTotale = preventivi.reduce((s, p) => s + p.importo, 0);
-  const inAttesa = preventivi.filter(p => p.stato === 'In Attesa').length;
-  const inCorso = preventivi.filter(p => p.stato === 'In Corso').length;
   const manodoperaTotale = preventivi.reduce((s, p) => s + (p.importoManodopera || 0), 0);
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
       <StatCard
         label="Preventivi"
         value={String(preventivi.length)}
@@ -2034,18 +2032,6 @@ function DashboardCards({ preventivi, clienti }) {
         accent="bg-emerald-50 text-emerald-600"
       />
       <StatCard
-        label="In Attesa"
-        value={String(inAttesa)}
-        icon={Clock}
-        accent="bg-amber-50 text-amber-600"
-      />
-      <StatCard
-        label="Lavori in Corso"
-        value={String(inCorso)}
-        icon={Wrench}
-        accent="bg-indigo-50 text-indigo-600"
-      />
-      <StatCard
         label="Manodopera Netta"
         value={fmtEuro(manodoperaTotale)}
         icon={TrendingUp}
@@ -2056,30 +2042,34 @@ function DashboardCards({ preventivi, clienti }) {
 }
 
 /* ============================================================ */
-/* R3 #3: conteggio preventivi per stato — schede filtrabili,     */
-/* così Denis vede a colpo d'occhio la situazione generale        */
+/* R3 #3: conteggio preventivi per stato — un'unica card con      */
+/* filtri a pillola, così Denis vede la situazione a colpo        */
+/* d'occhio senza ripetere le card di sopra                       */
 /* ============================================================ */
 function StatoBreakdown({ preventivi, statoFiltro, setStatoFiltro }) {
   const stati = Object.keys(statoStyle);
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-      {stati.map(stato => {
-        const conteggio = preventivi.filter(p => p.stato === stato).length;
-        const attivo = statoFiltro === stato;
-        return (
-          <button
-            key={stato}
-            type="button"
-            onClick={() => setStatoFiltro(attivo ? null : stato)}
-            className={`app-card p-3 text-left transition-colors ${attivo ? 'ring-2 ring-blue-500' : 'hover:border-blue-300'}`}
-          >
-            <p className="text-xl font-bold text-slate-900">{conteggio}</p>
-            <span className={`inline-flex mt-1.5 items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${statoStyle[stato]}`}>
+    <div className="app-card p-4 lg:p-5">
+      <p className="text-xs font-semibold text-slate-500 mb-3">Preventivi per stato</p>
+      <div className="flex flex-wrap gap-2">
+        {stati.map(stato => {
+          const conteggio = preventivi.filter(p => p.stato === stato).length;
+          const attivo = statoFiltro === stato;
+          return (
+            <button
+              key={stato}
+              type="button"
+              onClick={() => setStatoFiltro(attivo ? null : stato)}
+              className={`flex items-center gap-1.5 pl-2.5 pr-3 py-1.5 rounded-full text-xs font-semibold transition-all ${statoStyle[stato]} ${
+                attivo ? 'outline outline-2 outline-offset-1 outline-blue-500' : 'opacity-60 hover:opacity-100'
+              }`}
+            >
+              <span className="font-bold">{conteggio}</span>
               {stato}
-            </span>
-          </button>
-        );
-      })}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -2278,6 +2268,25 @@ function ClientiPage({ clienti, setClienti, clientiLoading, preventivi, onNuovoP
     if (error) mostraToast('Errore nel rimuovere la foto: ' + error.message);
   };
 
+  // R3: elimina cliente — bloccato se ha preventivi collegati, per non
+  // orfanizzare dati reali per sbaglio (va prima eliminato ogni preventivo)
+  const eliminaCliente = async (cliente) => {
+    const preventiviCliente = preventivi.filter(p => p.clienteId === cliente.id);
+    if (preventiviCliente.length > 0) {
+      mostraToast(`Elimina prima i ${preventiviCliente.length} preventivi di questo cliente.`);
+      return;
+    }
+    if (!window.confirm(`Eliminare definitivamente il cliente "${cliente.nome}"? L'azione non si può annullare.`)) return;
+    const fotoDaRimuovere = fotoCliente.map(f => f.storagePath).filter(Boolean);
+    if (fotoDaRimuovere.length) sb.storage.from('cantiere-foto').remove(fotoDaRimuovere).catch(() => {});
+    const documentiDaRimuovere = documenti.map(d => d.storagePath).filter(Boolean);
+    if (documentiDaRimuovere.length) sb.storage.from('documenti-cliente').remove(documentiDaRimuovere).catch(() => {});
+    const { error } = await sb.from('clienti').delete().eq('id', cliente.id);
+    if (error) { mostraToast('Errore nell’eliminare il cliente: ' + error.message); return; }
+    setClienti(prev => prev.filter(c => c.id !== cliente.id));
+    setSelectedId(null);
+  };
+
   const filtered = clienti
     .filter(c => c.nome.toLowerCase().includes(search.toLowerCase()) || c.indirizzo.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a.nome.localeCompare(b.nome));
@@ -2389,6 +2398,13 @@ function ClientiPage({ clienti, setClienti, clientiLoading, preventivi, onNuovoP
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => eliminaCliente(selected)}
+                className="flex items-center justify-center w-9 h-9 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                aria-label="Elimina cliente"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
               <button
                 onClick={() => startEditInfo(selected)}
                 className="flex items-center gap-1.5 border border-slate-200 text-slate-500 hover:bg-slate-50 text-sm font-semibold px-3.5 py-2.5 rounded-lg transition-colors"
@@ -3626,6 +3642,19 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
     setStatoEditId(null);
   };
 
+  // R3: elimina preventivo — le foto collegate spariscono in automatico dal db
+  // (cascade), ma i file nello storage vanno rimossi a mano
+  const eliminaPreventivo = async (p) => {
+    if (!window.confirm(`Eliminare definitivamente il preventivo ${p.id}? L'azione non si può annullare.`)) return;
+    const { data: fotoDaRimuovere } = await sb.from('foto').select('storage_path').eq('preventivo_id', p.dbId);
+    const paths = (fotoDaRimuovere || []).map(f => f.storage_path).filter(Boolean);
+    if (paths.length) sb.storage.from('cantiere-foto').remove(paths).catch(() => {});
+    const { error } = await sb.from('preventivi').delete().eq('id', p.dbId);
+    if (error) { mostraToast('Errore nell’eliminare il preventivo: ' + error.message); return; }
+    setPreventivi(prev => prev.filter(x => x.dbId !== p.dbId));
+    setMode('lista');
+  };
+
   const maxNum = Math.max(...preventivi.map(p => parseInt(p.id.replace('PV-', '')) || 0), 148);
   const numeroDocumento = 'PV-' + String(maxNum + 1).padStart(4, '0');
   const dataDocumento = new Date().toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -3830,13 +3859,22 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
             <ArrowLeft className="w-3.5 h-3.5" />
             Torna ai preventivi
           </button>
-          <button
-            onClick={() => iniziaModifica(p)}
-            className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-            Modifica preventivo
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => iniziaModifica(p)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              Modifica preventivo
+            </button>
+            <button
+              onClick={() => eliminaPreventivo(p)}
+              className="flex items-center justify-center w-7 h-7 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+              aria-label="Elimina preventivo"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
         <div className="app-card px-6 py-5 flex items-center justify-between flex-wrap gap-3">
