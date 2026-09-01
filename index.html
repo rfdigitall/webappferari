@@ -160,7 +160,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // numero con quello del file appena pubblicato online e, se sono diversi,
 // avvisa l'utente che c'è una versione nuova invece di restare bloccato
 // sulla vecchia copia in cache del telefono.
-const APP_VERSION = '202608252200';
+const APP_VERSION = '202609011200';
 
 /* ============================================================
    GOOGLE CALENDAR (Fase 7) — modulo isolato e opzionale.
@@ -237,6 +237,7 @@ function clienteFromRow(row) {
     id: row.id,
     nome: row.nome,
     indirizzo: row.indirizzo || '',
+    indirizzoResidenza: row.indirizzo_residenza || '', // R4 #8: residenza, distinto dal cantiere
     telefono: row.telefono || '',
     email: row.email || '',
     codiceFiscale: row.codice_fiscale || '',
@@ -253,6 +254,7 @@ function clienteToRow(c) {
   const row = {};
   if (c.nome !== undefined) row.nome = c.nome;
   if (c.indirizzo !== undefined) row.indirizzo = c.indirizzo;
+  if (c.indirizzoResidenza !== undefined) row.indirizzo_residenza = c.indirizzoResidenza;
   if (c.telefono !== undefined) row.telefono = c.telefono;
   if (c.email !== undefined) row.email = c.email;
   if (c.codiceFiscale !== undefined) row.codice_fiscale = c.codiceFiscale;
@@ -685,6 +687,8 @@ const Bell = makeIcon('Bell', [
 ]);
 
 const ChevronRight = makeIcon('ChevronRight', [['path', { d: 'm9 18 6-6-6-6' }]]);
+const ChevronUp = makeIcon('ChevronUp', [['path', { d: 'm18 15-6-6-6 6' }]]);
+const ChevronDown = makeIcon('ChevronDown', [['path', { d: 'm6 9 6 6 6-6' }]]);
 
 const Clock = makeIcon('Clock', [
   ['circle', { cx: 12, cy: 12, r: 10 }],
@@ -1015,10 +1019,14 @@ const MANODOPERA_PER_MATERIALE = [
   { chiavi: ['fotocellul', 'motore per cancello', 'automazione'], testo: 'Installazione e collaudo' },
 ];
 
+// R4 #13: niente più "fornitura e posa in opera" generico davanti alle voci
+// (ridondante, ora che il documento ha sezioni separate — R4 #14) — resta
+// SOLO quando c'è davvero una lavorazione specifica da segnalare
+// (cablaggio, posa e fissaggio, ecc.), altrimenti null
 function manodoperaPerMateriale(nome) {
   const n = (nome || '').toLowerCase();
   const trovata = MANODOPERA_PER_MATERIALE.find(m => m.chiavi.some(k => n.includes(k)));
-  return trovata ? trovata.testo : 'Fornitura e posa in opera';
+  return trovata ? trovata.testo : null;
 }
 
 function dicituraDefaultVoce(item) {
@@ -1035,14 +1043,15 @@ function dicituraDefaultVoce(item) {
   }
   if (item.kind === 'prodotto') {
     // FASE 4 raffinata — dicitura ricca come nei preventivi reali di Denis:
-    // marca/fornitore, misure e la descrizione tecnica del prodotto, non solo
-    // "fornitura e installazione" ripetuto uguale su ogni riga
+    // marca/fornitore, misure e la descrizione tecnica del prodotto.
+    // R4 #13: via il "fornitura e posa in opera" davanti — ridondante ora
+    // che il documento separa Materiale da Designazione lavori (R4 #14)
     const smontaggio = item.tipoInstallazione === 'sostituzione'
       ? `Smontaggio e smaltimento del vecchio ${item.nome.toLowerCase()}. `
       : '';
     // il fornitore NON entra mai nel nome/titolo mostrato — resta un campo/filtro
     // separato altrove (scheda prodotto, filtri catalogo), non nella dicitura
-    let frase = `Fornitura e posa in opera di ${item.nome}`;
+    let frase = item.nome;
     if (item.misuraLunghezza || item.misuraProfondita || item.misuraAltezza) {
       frase += `, misure ${item.misuraLunghezza || '–'}×${item.misuraProfondita || '–'}×${item.misuraAltezza || '–'} cm`;
     }
@@ -1054,9 +1063,12 @@ function dicituraDefaultVoce(item) {
     return smontaggio + frase;
   }
   if (item.kind === 'materiale' && item.unita) {
-    return `${manodoperaPerMateriale(item.nome)} di ${item.nome.toLowerCase()} (${item.qty} ${item.unita}).`;
+    const manodopera = manodoperaPerMateriale(item.nome);
+    return manodopera
+      ? `${manodopera} di ${item.nome.toLowerCase()} (${item.qty} ${item.unita}).`
+      : `${item.nome} (${item.qty} ${item.unita}).`;
   }
-  return `Fornitura e posa in opera di ${item.nome.toLowerCase()}.`;
+  return `${item.nome}.`;
 }
 
 // R3 #6: elenco nell'ordine scelto da Denis (quello del carrello, che parte
@@ -1182,24 +1194,45 @@ async function generaPDFCliente({ cliente, carrello, diciture, totale, nextId, l
   doc.text(righeIndirizzoCliente, 110, y+13);
   y += altezzaBoxCliente + 6;
 
-  // sezione DISEGNAZIONE LAVORI
-  doc.setFillColor(...NAVY);
-  doc.roundedRect(12, y, 186, 8, 2, 2, 'F');
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...WHITE);
-  doc.text('DISEGNAZIONE LAVORI', 20, y+5.5);
-  y += 13;
+  // R4 #14: due sezioni distinte — Materiale e Designazione lavori — invece
+  // di un'unica lista mescolata. R4 #12: la trasferta non compare mai qui,
+  // resta comunque nel totale (e visibile nel PDF interno).
+  const rigaSezione = (titolo) => {
+    doc.setFillColor(...NAVY);
+    doc.roundedRect(12, y, 186, 8, 2, 2, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...WHITE);
+    doc.text(titolo, 20, y+5.5);
+    y += 13;
+  };
+  const righeCorpo = elencoOrdinato(carrello, diciture || {}).filter(({ item }) => item.kind !== 'trasferta');
+  const righeMateriale = righeCorpo.filter(({ item }) => item.kind === 'materiale' || item.kind === 'prodotto');
+  const righeLavori = righeCorpo.filter(({ item }) => item.kind === 'lavoro');
 
-  // corpo — voci nell'ordine scelto da Denis (drag & drop), niente prezzi,
-  // niente più sezioni per categoria: un lavoro reale (smontaggio+prodotto+
-  // manodopera) resta un blocco unico invece di essere spezzato
+  // corpo — voci nell'ordine scelto da Denis (frecce su/giù), niente prezzi,
+  // niente più sezioni per categoria tecnica: un lavoro reale (smontaggio+
+  // prodotto) resta un blocco unico invece di essere spezzato
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(80, 85, 92);
-  elencoOrdinato(carrello, diciture || {}).forEach(({ testo }) => {
-    const lines = doc.splitTextToSize(`• ${testo}`, 182);
-    nuovaPaginaSeServe(lines.length * 4.5);
-    doc.text(lines, 15, y);
-    y += lines.length * 4.5;
-  });
-  y += 3;
+  if (righeMateriale.length > 0) {
+    rigaSezione('MATERIALE');
+    righeMateriale.forEach(({ testo }) => {
+      const lines = doc.splitTextToSize(`• ${testo}`, 182);
+      nuovaPaginaSeServe(lines.length * 4.5);
+      doc.text(lines, 15, y);
+      y += lines.length * 4.5;
+    });
+    y += 3;
+  }
+  if (righeLavori.length > 0) {
+    nuovaPaginaSeServe(13);
+    rigaSezione('DESIGNAZIONE LAVORI');
+    righeLavori.forEach(({ testo }) => {
+      const lines = doc.splitTextToSize(`• ${testo}`, 182);
+      nuovaPaginaSeServe(lines.length * 4.5);
+      doc.text(lines, 15, y);
+      y += lines.length * 4.5;
+    });
+    y += 3;
+  }
 
   nuovaPaginaSeServe(30);
 
@@ -2202,6 +2235,9 @@ function ClientiPage({ clienti, setClienti, clientiLoading, preventivi, onNuovoP
   const [newNome, setNewNome] = useState('');
   const [newIndirizzo, setNewIndirizzo] = useState('');
   const [newTelefono, setNewTelefono] = useState('');
+  const [newEmail, setNewEmail] = useState(''); // R4 #7: mancavano al nuovo cliente
+  const [newCodiceFiscale, setNewCodiceFiscale] = useState('');
+  const [newIndirizzoResidenza, setNewIndirizzoResidenza] = useState(''); // R4 #8
   const [newGps, setNewGps] = useState(null); // { gpsLat, gpsLng, gpsMapsUrl }
   const [noteInput, setNoteInput] = useState('');
   const [salvandoCliente, setSalvandoCliente] = useState(false);
@@ -2209,6 +2245,7 @@ function ClientiPage({ clienti, setClienti, clientiLoading, preventivi, onNuovoP
   const [fotoCliente, setFotoCliente] = useState([]);
   const [editandoInfo, setEditandoInfo] = useState(false);
   const [editIndirizzo, setEditIndirizzo] = useState('');
+  const [editIndirizzoResidenza, setEditIndirizzoResidenza] = useState(''); // R4 #8
   const [editTelefono, setEditTelefono] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editCodiceFiscale, setEditCodiceFiscale] = useState('');
@@ -2340,7 +2377,10 @@ function ClientiPage({ clienti, setClienti, clientiLoading, preventivi, onNuovoP
     const payload = {
       nome: newNome.trim(),
       indirizzo: newIndirizzo.trim() || 'Indirizzo da definire',
+      indirizzoResidenza: newIndirizzoResidenza.trim(),
       telefono: newTelefono.trim(),
+      email: newEmail.trim(),
+      codiceFiscale: newCodiceFiscale.trim(),
       ...(newGps || {}),
     };
     const { data, error } = await sb.from('clienti').insert(clienteToRow(payload)).select().single();
@@ -2353,7 +2393,10 @@ function ClientiPage({ clienti, setClienti, clientiLoading, preventivi, onNuovoP
     setClienti([nuovo, ...clienti]);
     setNewNome('');
     setNewIndirizzo('');
+    setNewIndirizzoResidenza('');
     setNewTelefono('');
+    setNewEmail('');
+    setNewCodiceFiscale('');
     setNewGps(null);
     setShowNewForm(false);
     setSelectedId(nuovo.id);
@@ -2371,6 +2414,7 @@ function ClientiPage({ clienti, setClienti, clientiLoading, preventivi, onNuovoP
 
   const startEditInfo = (c) => {
     setEditIndirizzo(c.indirizzo || '');
+    setEditIndirizzoResidenza(c.indirizzoResidenza || '');
     setEditTelefono(c.telefono || '');
     setEditEmail(c.email || '');
     setEditCodiceFiscale(c.codiceFiscale || '');
@@ -2384,6 +2428,7 @@ function ClientiPage({ clienti, setClienti, clientiLoading, preventivi, onNuovoP
     setErroreInfo('');
     const payload = {
       indirizzo: editIndirizzo.trim() || 'Indirizzo da definire',
+      indirizzoResidenza: editIndirizzoResidenza.trim(),
       telefono: editTelefono.trim(),
       email: editEmail.trim(),
       codiceFiscale: editCodiceFiscale.trim(),
@@ -2434,7 +2479,10 @@ function ClientiPage({ clienti, setClienti, clientiLoading, preventivi, onNuovoP
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-slate-900 tracking-tight">{selected.nome}</h2>
-                <p className="text-sm text-slate-500 mt-0.5">{selected.indirizzo}</p>
+                <p className="text-sm text-slate-500 mt-0.5">Cantiere: {selected.indirizzo}</p>
+                {selected.indirizzoResidenza && (
+                  <p className="text-sm text-slate-500 mt-0.5">Residenza: {selected.indirizzoResidenza}</p>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -2469,6 +2517,14 @@ function ClientiPage({ clienti, setClienti, clientiLoading, preventivi, onNuovoP
                 <IndirizzoAutocomplete
                   value={editIndirizzo}
                   onChange={setEditIndirizzo}
+                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Indirizzo residenza (opzionale, se diverso dal cantiere)</label>
+                <IndirizzoAutocomplete
+                  value={editIndirizzoResidenza}
+                  onChange={setEditIndirizzoResidenza}
                   className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
                 />
               </div>
@@ -2746,12 +2802,32 @@ function ClientiPage({ clienti, setClienti, clientiLoading, preventivi, onNuovoP
               placeholder="Indirizzo cantiere"
               className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
             />
+            <IndirizzoAutocomplete
+              value={newIndirizzoResidenza}
+              onChange={setNewIndirizzoResidenza}
+              placeholder="Indirizzo residenza (opzionale)"
+              className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
+            />
             <input
               type="text"
               value={newTelefono}
               onChange={(e) => setNewTelefono(e.target.value)}
               placeholder="Telefono"
               className="px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
+            />
+            <input
+              type="email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              placeholder="Email"
+              className="px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
+            />
+            <input
+              type="text"
+              value={newCodiceFiscale}
+              onChange={(e) => setNewCodiceFiscale(e.target.value.toUpperCase())}
+              placeholder="Codice fiscale"
+              className="px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 font-mono"
             />
           </div>
           <div className="mt-3">
@@ -3029,6 +3105,8 @@ function NuovoClienteInline({ onSalva }) {
   const [nome, setNome] = useState('');
   const [indirizzo, setIndirizzo] = useState('');
   const [telefono, setTelefono] = useState('');
+  const [email, setEmail] = useState(''); // R4 #7: mancavano anche qui
+  const [codiceFiscale, setCodiceFiscale] = useState('');
   const [gps, setGps] = useState(null); // { gpsLat, gpsLng, gpsMapsUrl }
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState('');
@@ -3041,6 +3119,8 @@ function NuovoClienteInline({ onSalva }) {
       nome: nome.trim(),
       indirizzo: indirizzo.trim() || 'Indirizzo da definire',
       telefono: telefono.trim(),
+      email: email.trim(),
+      codiceFiscale: codiceFiscale.trim(),
       ...(gps || {}),
     };
     const { data, error } = await sb.from('clienti').insert(clienteToRow(payload)).select().single();
@@ -3050,7 +3130,7 @@ function NuovoClienteInline({ onSalva }) {
       return;
     }
     onSalva(clienteFromRow(data));
-    setNome(''); setIndirizzo(''); setTelefono(''); setGps(null);
+    setNome(''); setIndirizzo(''); setTelefono(''); setEmail(''); setCodiceFiscale(''); setGps(null);
     setAperto(false);
   };
 
@@ -3089,10 +3169,11 @@ function NuovoClienteInline({ onSalva }) {
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-500 mb-1">Indirizzo cantiere</label>
-          <input
-            type="text"
+          {/* R4 #9: qui mancava l'autocomplete indirizzo presente ovunque
+              altrove nell'app — era un campo di testo semplice */}
+          <IndirizzoAutocomplete
             value={indirizzo}
-            onChange={e => setIndirizzo(e.target.value)}
+            onChange={setIndirizzo}
             placeholder="Es. Via Mazzini 8, Bologna"
             className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
           />
@@ -3105,6 +3186,25 @@ function NuovoClienteInline({ onSalva }) {
             onChange={e => setTelefono(e.target.value)}
             placeholder="+39 333 1234567"
             className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-500 mb-1">Email</label>
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="nome@esempio.it"
+            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-500 mb-1">Codice fiscale</label>
+          <input
+            type="text"
+            value={codiceFiscale}
+            onChange={e => setCodiceFiscale(e.target.value.toUpperCase())}
+            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 font-mono"
           />
         </div>
         <GpsCapture gpsMapsUrl={gps?.gpsMapsUrl} onCapture={setGps} />
@@ -3133,83 +3233,94 @@ function NuovoClienteInline({ onSalva }) {
 /* R3 #6: lista voci trascinabile — riordina il documento cliente */
 /* con drag & drop (mouse e touch, via Pointer Events)            */
 /* ============================================================ */
-function ListaVociOrdinabile({ carrello, diciture, onTestoChange, onReorder }) {
-  const containerRef = useRef(null);
-  const [draggingId, setDraggingId] = useState(null);
-  const [dragY, setDragY] = useState(0);
-  const dragInfo = useRef({ startY: 0, rowHeight: 70 });
+// R4 #2: il drag col dito era inaffidabile su telefono reale (segnalato da
+// Denis) — sostituito con due frecce su/giù per riga, molto più affidabili
+// al tocco. Lo scambio avviene sull'array reale del carrello, non solo su
+// questo elenco derivato, così l'ordine resta coerente ovunque.
+// R4 #14: "filtro" opzionale sposta la voce dentro il suo sottoinsieme
+// (es. solo tra i materiali, o solo tra le voci di lavoro) invece che
+// nell'intero carrello — serve per riordinare dentro le due sezioni
+// separate del documento senza mescolarle tra loro
+function spostaVoce(carrello, id, direzione, filtro) {
+  const ambito = filtro ? carrello.filter(filtro) : carrello;
+  const indice = ambito.findIndex(i => i.id === id);
+  const nuovoIndice = indice + direzione;
+  if (indice === -1 || nuovoIndice < 0 || nuovoIndice >= ambito.length) return carrello;
+  const a = ambito[indice], b = ambito[nuovoIndice];
+  const idxA = carrello.findIndex(i => i.id === a.id);
+  const idxB = carrello.findIndex(i => i.id === b.id);
+  const nuovoOrdine = [...carrello];
+  [nuovoOrdine[idxA], nuovoOrdine[idxB]] = [nuovoOrdine[idxB], nuovoOrdine[idxA]];
+  return nuovoOrdine;
+}
 
-  const righe = elencoOrdinato(carrello, diciture);
-
-  const iniziaTrascinamento = (index, clientY) => {
-    const container = containerRef.current;
-    const rowEl = container?.children[index];
-    dragInfo.current = { startY: clientY, rowHeight: rowEl ? rowEl.offsetHeight : 70 };
-    setDraggingId(righe[index].item.id);
-    setDragY(0);
-  };
-
-  useEffect(() => {
-    if (!draggingId) return;
-    const muovi = (clientY) => {
-      const { startY, rowHeight } = dragInfo.current;
-      const delta = clientY - startY;
-      const indiceAttuale = carrello.findIndex(i => i.id === draggingId);
-      const passi = Math.round(delta / rowHeight);
-      if (passi !== 0) {
-        const nuovoIndice = Math.min(Math.max(indiceAttuale + passi, 0), carrello.length - 1);
-        if (nuovoIndice !== indiceAttuale) {
-          const nuovoOrdine = [...carrello];
-          const [voceSpostata] = nuovoOrdine.splice(indiceAttuale, 1);
-          nuovoOrdine.splice(nuovoIndice, 0, voceSpostata);
-          onReorder(nuovoOrdine);
-          dragInfo.current.startY = clientY;
-        }
-      }
-      setDragY(clientY - dragInfo.current.startY);
-    };
-    const onMove = (e) => { e.preventDefault(); muovi(e.touches ? e.touches[0].clientY : e.clientY); };
-    const onEnd = () => { setDraggingId(null); setDragY(0); };
-    window.addEventListener('pointermove', onMove, { passive: false });
-    window.addEventListener('pointerup', onEnd);
-    window.addEventListener('pointercancel', onEnd);
-    return () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onEnd);
-      window.removeEventListener('pointercancel', onEnd);
-    };
-  }, [draggingId, carrello, onReorder]);
+function ListaVociOrdinabile({ carrello, diciture, onTestoChange, onReorder, filtro }) {
+  const righe = elencoOrdinato(carrello, diciture).filter(filtro ? ({ item }) => filtro(item) : () => true);
 
   return (
-    <ul ref={containerRef} className="space-y-2">
-      {righe.map(({ item, testo }, index) => {
-        const inTrascinamento = draggingId === item.id;
-        return (
-          <li
-            key={item.id}
-            style={inTrascinamento ? { transform: `translateY(${dragY}px)`, position: 'relative', zIndex: 10 } : undefined}
-            className={`flex gap-1.5 items-start rounded-md transition-shadow ${inTrascinamento ? 'bg-blue-50 shadow-lg' : ''}`}
-          >
+    <ul className="space-y-2">
+      {righe.map(({ item, testo }, index) => (
+        <li key={item.id} className="flex gap-1.5 items-start rounded-md">
+          <div className="flex flex-col shrink-0 mt-0.5">
             <button
               type="button"
-              onPointerDown={(e) => { e.preventDefault(); iniziaTrascinamento(index, e.clientY); }}
-              className="mt-1.5 text-slate-300 hover:text-slate-500 shrink-0 p-0.5 cursor-grab active:cursor-grabbing"
-              style={{ touchAction: 'none' }}
-              aria-label="Trascina per riordinare"
+              onClick={() => onReorder(spostaVoce(carrello, item.id, -1, filtro))}
+              disabled={index === 0}
+              className="text-slate-300 hover:text-slate-600 disabled:opacity-20 disabled:hover:text-slate-300 p-0.5"
+              aria-label="Sposta su"
             >
-              <GripVertical className="w-4 h-4" />
+              <ChevronUp className="w-4 h-4" />
             </button>
-            <textarea
-              value={testo}
-              onChange={(e) => onTestoChange(item.id, e.target.value)}
-              rows={2}
-              className="flex-1 bg-slate-50 border border-slate-200 rounded-md px-2 py-1.5 text-[11.5px] text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/30 resize-none"
-            />
-          </li>
-        );
-      })}
+            <button
+              type="button"
+              onClick={() => onReorder(spostaVoce(carrello, item.id, 1, filtro))}
+              disabled={index === righe.length - 1}
+              className="text-slate-300 hover:text-slate-600 disabled:opacity-20 disabled:hover:text-slate-300 p-0.5"
+              aria-label="Sposta giù"
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          </div>
+          <textarea
+            value={testo}
+            onChange={(e) => onTestoChange(item.id, e.target.value)}
+            rows={2}
+            className="flex-1 bg-slate-50 border border-slate-200 rounded-md px-2 py-1.5 text-[11.5px] text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/30 resize-none"
+          />
+        </li>
+      ))}
     </ul>
   );
+}
+
+/* ============================================================ */
+/* R4 #1: bozza persistente del preventivo in corso — se Denis    */
+/* esce dalla schermata (cambia sezione, chiude l'app, l'app viene */
+/* uccisa in background su Android) il lavoro non deve sparire.    */
+/* Un solo slot in localStorage: basta perché Denis lavora su un   */
+/* preventivo alla volta.                                          */
+/* ============================================================ */
+const BOZZA_PREVENTIVO_KEY = 'ferari_bozza_preventivo';
+const BOZZA_PREVENTIVO_SCADENZA_MS = 7 * 24 * 60 * 60 * 1000; // 7 giorni
+
+function salvaBozzaLocale(bozza) {
+  try {
+    localStorage.setItem(BOZZA_PREVENTIVO_KEY, JSON.stringify({ ...bozza, salvataIl: Date.now() }));
+  } catch (err) { /* storage pieno o non disponibile: pazienza, non blocchiamo l'app */ }
+}
+
+function leggiBozzaLocale() {
+  try {
+    const raw = localStorage.getItem(BOZZA_PREVENTIVO_KEY);
+    if (!raw) return null;
+    const bozza = JSON.parse(raw);
+    if (!bozza.salvataIl || Date.now() - bozza.salvataIl > BOZZA_PREVENTIVO_SCADENZA_MS) return null;
+    return bozza;
+  } catch (err) { return null; }
+}
+
+function cancellaBozzaLocale() {
+  try { localStorage.removeItem(BOZZA_PREVENTIVO_KEY); } catch (err) { /* niente */ }
 }
 
 /* ============================================================ */
@@ -3252,6 +3363,7 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
   const [activeCat, setActiveCat] = useState(categorieCatalogo[0]);
   const [activeSubCatalogo, setActiveSubCatalogo] = useState('Tutte');
   const [queryCatalogoPreventivo, setQueryCatalogoPreventivo] = useState('');
+  const [queryMateriali, setQueryMateriali] = useState(''); // R4 #5: mancava del tutto una ricerca qui
   const [savedFlashId, setSavedFlashId] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const [previewView, setPreviewView] = useState('cliente'); // 'cliente' | 'interno'
@@ -3264,6 +3376,25 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
   const [diciture, setDiciture] = useState({}); // { [itemId]: { categoria, testo } } — Fase 4
 
   const setTestoVoce = (itemId, testo) => setDiciture(prev => ({ ...prev, [itemId]: { ...prev[itemId], testo } }));
+
+  // R4 #1: rimette in piedi il costruttore esattamente com'era rimasto
+  const ripristinaBozza = (bozza) => {
+    setModificaId(bozza.modificaId || null);
+    setModificaDbId(bozza.modificaDbId || null);
+    setClienteId(bozza.clienteId || null);
+    setCarrello(bozza.carrello || []);
+    setKmTrasferta(bozza.kmTrasferta || '');
+    setRincaroMode(bozza.rincaroMode || 'percent');
+    setRincaroPercent(bozza.rincaroPercent || '10');
+    setRincaroOre(bozza.rincaroOre || '8');
+    setRincaroTariffa(bozza.rincaroTariffa || '35');
+    setZonaAttiva(bozza.zonaAttiva || 'generico');
+    setDiciture(bozza.diciture || {});
+    setFotoCantiere(bozza.fotoCantiere || []);
+    setClienteSearch('');
+    setMode('nuovo');
+    mostraToast('Bozza ripristinata: hai continuato da dove avevi lasciato.', 'info');
+  };
 
   // carica le foto del preventivo aperto in dettaglio
   React.useEffect(() => {
@@ -3278,15 +3409,51 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
     return () => { annullato = true; };
   }, [mode, dettaglioId]);
 
-  // apre direttamente il flusso "nuovo" se arriviamo da una scheda cliente
+  // apre direttamente il flusso "nuovo" se arriviamo da una scheda cliente —
+  // se c'è già una bozza non salvata per QUESTO cliente, la ripristiniamo
+  // invece di ripartire da zero (R4 #1)
   React.useEffect(() => {
     if (presetClienteId) {
-      setClienteId(presetClienteId);
-      setCarrello([]);
-      setMode('nuovo');
+      const bozza = leggiBozzaLocale();
+      if (bozza && bozza.clienteId === presetClienteId) {
+        ripristinaBozza(bozza);
+      } else {
+        setClienteId(presetClienteId);
+        setCarrello([]);
+        setMode('nuovo');
+      }
       onConsumePreset();
     }
   }, [presetClienteId]);
+
+  // R4 #1: salva la bozza in corso ad ogni modifica (non solo al logout),
+  // così se Denis esce dalla schermata — cambia sezione, chiude l'app,
+  // Android la uccide in background — il preventivo non si perde più
+  React.useEffect(() => {
+    if (mode !== 'nuovo' || !clienteId) return;
+    salvaBozzaLocale({
+      modificaId, modificaDbId, clienteId, carrello, kmTrasferta,
+      rincaroMode, rincaroPercent, rincaroOre, rincaroTariffa,
+      zonaAttiva, diciture, fotoCantiere,
+    });
+  }, [mode, clienteId, carrello, kmTrasferta, rincaroMode, rincaroPercent, rincaroOre, rincaroTariffa, zonaAttiva, diciture, fotoCantiere, modificaId, modificaDbId]);
+
+  // R4 #1 (rete di sicurezza): se non c'è una bozza da ripristinare ma questo
+  // cliente ha già foto "orfane" (scattate in un tentativo precedente andato
+  // perso prima di questo fix), le ritroviamo invece di farle rifare a Denis
+  // — evita i duplicati segnalati
+  React.useEffect(() => {
+    if (mode !== 'nuovo' || !clienteId || modificaId) return;
+    if (carrello.length > 0 || fotoCantiere.length > 0) return;
+    let annullato = false;
+    sb.from('foto').select('*').eq('cliente_id', clienteId).is('preventivo_id', null)
+      .order('creato_il', { ascending: true }).then(({ data, error }) => {
+        if (annullato || error || !data || data.length === 0) return;
+        setFotoCantiere(data.map(fotoFromRow));
+        mostraToast(`Ritrovate ${data.length} foto già scattate per questo cliente.`, 'info');
+      });
+    return () => { annullato = true; };
+  }, [mode, clienteId, modificaId]);
 
   // apre direttamente il dettaglio se arriviamo dallo storico di un cliente
   React.useEffect(() => {
@@ -3360,7 +3527,31 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
   const prodottiCatalogoTecnici = prodottiCatalogoPreventivo.filter(p => p.categoria !== 'Bagno');
   const prodottiCatalogoBagno = prodottiCatalogoPreventivo.filter(p => p.categoria === 'Bagno');
 
+  // R4 #3: Denis vuole un'unica ricerca per materiali grezzi e prodotti —
+  // quando cerca nel catalogo, i materiali che matchano compaiono insieme
+  // ai prodotti, stesso posto, stesso comportamento
+  const materialiCatalogoPreventivo = ricercaCatalogoAttiva
+    ? materiali.filter(m => visibileInZona(m, zonaAttiva) && m.nome.toLowerCase().includes(queryCatalogoPreventivo.trim().toLowerCase()))
+    : [];
+
+  // R4 #5: ricerca per la lista "Materiali grezzi" — prima non esisteva
+  const materialiFiltratiBuilder = materiali
+    .filter(m => visibileInZona(m, zonaAttiva))
+    .filter(m => m.nome.toLowerCase().includes(queryMateriali.trim().toLowerCase()));
+
+  // R4 #1: se c'è una bozza non salvata in giro, la ripristiniamo invece di
+  // ripartire da zero — "Scarta bozza" (sotto) resta la via esplicita per
+  // buttarla via davvero e iniziare puliti
   const startNuovo = () => {
+    const bozza = leggiBozzaLocale();
+    if (bozza && bozza.clienteId) {
+      ripristinaBozza(bozza);
+      return;
+    }
+    resetBozzaVuota();
+  };
+
+  const resetBozzaVuota = () => {
     setModificaId(null);
     setModificaDbId(null);
     setClienteId(null);
@@ -3377,10 +3568,23 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
     setMode('nuovo');
   };
 
+  const scartaBozza = () => {
+    if (!window.confirm('Scartare questa bozza non salvata? Non si può annullare.')) return;
+    cancellaBozzaLocale();
+    resetBozzaVuota();
+  };
+
   // apre un preventivo esistente nello stesso costruttore usato per crearne
   // uno nuovo, così si possono cambiare voci/materiali/zone, e ricarica le
   // foto già salvate per questo preventivo
   const iniziaModifica = async (p) => {
+    // R4 #1: se questa stessa modifica era rimasta a metà (bozza più recente
+    // di quanto già salvato su Supabase), riprendiamo da lì
+    const bozza = leggiBozzaLocale();
+    if (bozza && bozza.modificaId === p.id) {
+      ripristinaBozza(bozza);
+      return;
+    }
     setModificaId(p.id);
     setModificaDbId(p.dbId);
     setClienteId(p.clienteId);
@@ -3447,10 +3651,18 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
   const aggiungiMaterialeAlVolo = async () => {
     const nomeDigitato = nmNome.trim();
     if (!nomeDigitato) return;
-    // R3 #4: se un materiale con lo stesso nome esiste già nel listino, lo
-    // riusiamo invece di creare un duplicato — prima capitava perché non
-    // c'era nessun controllo (visto dal vivo: "Raccordo a pressare dritto
-    // 1/2\"" salvato due volte)
+    // R4 #4: il controllo duplicati (già fatto per i materiali, R3 #4) ora
+    // copre anche i prodotti del catalogo — dopo l'unificazione (R4 #3) non
+    // deve più essere possibile ricreare come "materiale" qualcosa che
+    // esiste già come prodotto, e viceversa
+    const giaEsistenteProdotto = prodotti.find(p => p.nome.trim().toLowerCase() === nomeDigitato.toLowerCase());
+    if (giaEsistenteProdotto) {
+      const inCarrelloProdotto = carrello.find(i => i.id === giaEsistenteProdotto.id);
+      if (!inCarrelloProdotto) toggleProdotto(giaEsistenteProdotto);
+      mostraToast(`"${giaEsistenteProdotto.nome}" era già nel catalogo prodotti — aggiunto da lì.`, 'info');
+      setNmNome(''); setNmUnita('m'); setNmPrezzo(''); setNmZona(''); setShowNuovoMateriale(false);
+      return;
+    }
     const giaEsistente = materiali.find(m => m.nome.trim().toLowerCase() === nomeDigitato.toLowerCase());
     if (giaEsistente) {
       setCarrello(prev => {
@@ -3737,6 +3949,7 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
         await accodaOffline('preventivo', { modificaId, modificaDbId, payload, fotoPendenti });
         setPreventivi(preventivi.map(p => p.id === modificaId ? { ...p, ...payload, id: modificaId, zone: zoneCoinvolte, nFoto: fotoCantiere.length, pending: true } : p));
       }
+      cancellaBozzaLocale();
       setSalvandoPreventivo(false);
       setShowPreview(false);
       setShowSuccess(true);
@@ -3774,6 +3987,7 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
       const nuovo = { ...payload, zone: zoneCoinvolte, nFoto: fotoCantiere.length, pending: true };
       setPreventivi([nuovo, ...preventivi]);
     }
+    cancellaBozzaLocale();
     setSalvandoPreventivo(false);
     setShowPreview(false);
     setShowSuccess(true);
@@ -4038,10 +4252,19 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
   /* ---- vista creazione/modifica preventivo ---- */
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-4">
-      <button onClick={() => { setModificaId(null); setModificaDbId(null); setMode('lista'); }} className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 mb-5">
-        <ArrowLeft className="w-3.5 h-3.5" />
-        Torna ai preventivi
-      </button>
+      <div className="flex items-center justify-between mb-5">
+        <button onClick={() => { setModificaId(null); setModificaDbId(null); setMode('lista'); }} className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900">
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Torna ai preventivi
+        </button>
+        {/* R4 #1: la bozza resta salvata anche uscendo da qui — questo è
+            l'unico modo per buttarla via davvero */}
+        {!modificaId && (cliente || carrello.length > 0) && (
+          <button onClick={scartaBozza} className="text-xs font-semibold text-red-400 hover:text-red-600">
+            Scarta bozza
+          </button>
+        )}
+      </div>
       {modificaId && (
         <p className="text-xs font-semibold text-blue-600 -mt-3 mb-4">Stai modificando {modificaId}</p>
       )}
@@ -4107,7 +4330,10 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
 
             <div className="app-card px-5 py-4">
               <p className="text-[11px] text-slate-400 uppercase tracking-wide font-semibold">Preventivo per</p>
-              <p className="text-sm font-bold text-slate-900 mt-0.5">{cliente.nome} · {cliente.indirizzo}</p>
+              <p className="text-sm font-bold text-slate-900 mt-0.5">{cliente.nome} · Cantiere: {cliente.indirizzo}</p>
+              {cliente.indirizzoResidenza && (
+                <p className="text-xs text-slate-500 mt-1">Residenza: {cliente.indirizzoResidenza}</p>
+              )}
             </div>
 
             {/* zona / ambiente attivo */}
@@ -4223,6 +4449,18 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
                   Nuovo materiale
                 </button>
               </div>
+              <div className="px-5 py-3 border-b border-slate-100">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={queryMateriali}
+                    onChange={(e) => setQueryMateriali(e.target.value)}
+                    placeholder="Cerca un materiale..."
+                    className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
+                  />
+                </div>
+              </div>
               {showNuovoMateriale && (
                 <div className="px-5 py-4 bg-slate-50 border-b border-slate-100">
                   <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto_auto] gap-2.5 items-end">
@@ -4291,10 +4529,12 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
                 </div>
               )}
               <div className="divide-y divide-slate-50">
-                {materiali.filter(m => visibileInZona(m, zonaAttiva)).length === 0 && (
-                  <p className="text-xs text-slate-400 text-center py-6">Nessun materiale per questa zona.</p>
+                {materialiFiltratiBuilder.length === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-6">
+                    {queryMateriali ? 'Nessun materiale trovato.' : 'Nessun materiale per questa zona.'}
+                  </p>
                 )}
-                {materiali.filter(m => visibileInZona(m, zonaAttiva)).map(m => {
+                {materialiFiltratiBuilder.map(m => {
                   const inCarrello = carrello.find(i => i.id === m.id);
                   return (
                     <div key={m.id} className="px-4 sm:px-5 py-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
@@ -4305,7 +4545,21 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
                       <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
                         <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1">
                           <button onClick={() => aggiornaQtyMateriale(m.id, Math.max(1, (inCarrello?.qty || 1) - 1))} className="text-slate-400 w-5 text-center font-bold">−</button>
-                          <span className="w-6 text-center text-xs font-mono text-slate-700">{inCarrello?.qty || 0}</span>
+                          {/* R4 #11: per i cavi (prezzo al metro) cliccare + una
+                              cifra alla volta era impraticabile — ora si può
+                              scrivere direttamente quanti metri servono */}
+                          <input
+                            key={`qty-${m.id}-${inCarrello?.qty || 0}`}
+                            type="text"
+                            inputMode="decimal"
+                            defaultValue={inCarrello?.qty || ''}
+                            onChange={(e) => {
+                              const val = parseFloat((e.target.value || '0').replace(',', '.'));
+                              aggiornaQtyMateriale(m.id, isNaN(val) ? 0 : val);
+                            }}
+                            placeholder="0"
+                            className="w-9 text-center text-xs font-mono text-slate-700 bg-transparent outline-none"
+                          />
                           <button onClick={() => aggiornaQtyMateriale(m.id, (inCarrello?.qty || 0) + 1)} className="text-slate-400 w-5 text-center font-bold">+</button>
                         </div>
                         <div className={`flex items-center gap-1 border rounded-lg px-2.5 py-1.5 transition-colors ${savedFlashId === m.id ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-50 border-slate-200'}`}>
@@ -4585,7 +4839,7 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
                     type="text"
                     value={queryCatalogoPreventivo}
                     onChange={(e) => setQueryCatalogoPreventivo(e.target.value)}
-                    placeholder="Cerca un prodotto per nome o codice..."
+                    placeholder="Cerca prodotto o materiale per nome, codice..."
                     className="w-full pl-9 pr-9 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
                   />
                   {ricercaCatalogoAttiva && (
@@ -4650,8 +4904,33 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
                 <>
                   {ricercaCatalogoAttiva && (
                     <p className="text-xs font-semibold text-slate-500 px-5 pt-3">
-                      {prodottiCatalogoPreventivo.length} risultat{prodottiCatalogoPreventivo.length === 1 ? 'o' : 'i'} per "{queryCatalogoPreventivo.trim()}"
+                      {prodottiCatalogoPreventivo.length + materialiCatalogoPreventivo.length} risultat{(prodottiCatalogoPreventivo.length + materialiCatalogoPreventivo.length) === 1 ? 'o' : 'i'} per "{queryCatalogoPreventivo.trim()}"
                     </p>
+                  )}
+
+                  {/* R4 #3: materiali grezzi che matchano la ricerca, nello
+                      stesso posto e con lo stesso comportamento dei prodotti */}
+                  {materialiCatalogoPreventivo.length > 0 && (
+                    <div className="divide-y divide-slate-50">
+                      {materialiCatalogoPreventivo.map((m) => {
+                        const inCarrello = carrello.find(i => i.id === m.id);
+                        return (
+                          <div key={m.id} className="pl-3.5 pr-4 py-3 border-l-[3px] border-amber-400 flex items-center justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[13px] font-semibold text-slate-900 truncate">{m.nome}</p>
+                              <p className="text-[11px] text-slate-400 truncate mt-0.5">{m.unita === 'm' ? 'al metro' : 'a pezzo'} · Materiale</p>
+                              <p className="text-sm font-semibold text-slate-900 mt-1">{fmtEuro(m.prezzo)}</p>
+                            </div>
+                            <button
+                              onClick={() => aggiornaQtyMateriale(m.id, (inCarrello?.qty || 0) + 1)}
+                              className={`shrink-0 text-[11px] font-bold px-3 py-2 rounded-lg transition-colors ${inCarrello ? 'bg-slate-900 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}
+                            >
+                              {inCarrello ? `✓ ${inCarrello.qty}` : '+ Aggiungi'}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
 
                   {prodottiCatalogoTecnici.length > 0 && (
@@ -4709,7 +4988,7 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
                     </div>
                   )}
 
-                  {prodottiCatalogoPreventivo.length === 0 && (
+                  {prodottiCatalogoPreventivo.length === 0 && materialiCatalogoPreventivo.length === 0 && (
                     <p className="text-xs text-slate-400 text-center py-6 px-5">
                       {ricercaCatalogoAttiva ? 'Nessun prodotto trovato.' : 'Nessun prodotto per questa zona in questa categoria.'}
                     </p>
@@ -4728,12 +5007,34 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
               {carrello.length === 0 && (
                 <p className="text-xs text-slate-400 text-center py-6">Aggiungi materiali o prodotti per iniziare.</p>
               )}
-              {carrello.map(item => {
+              {carrello.map((item, index) => {
                 const zonaInfo = ZONE_AMBIENTI.find(z => z.id === (item.zona || 'generico'));
                 return (
                 <div key={item.id} className="bg-slate-50 rounded-lg px-3 py-2">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
+                    {/* R4 #2: riordino diretto qui, mentre si costruisce il
+                        preventivo — non solo nell'anteprima */}
+                    <div className="flex flex-col shrink-0 -my-1">
+                      <button
+                        type="button"
+                        onClick={() => setCarrello(spostaVoce(carrello, item.id, -1))}
+                        disabled={index === 0}
+                        className="text-slate-300 hover:text-slate-600 disabled:opacity-20 disabled:hover:text-slate-300"
+                        aria-label="Sposta su"
+                      >
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCarrello(spostaVoce(carrello, item.id, 1))}
+                        disabled={index === carrello.length - 1}
+                        className="text-slate-300 hover:text-slate-600 disabled:opacity-20 disabled:hover:text-slate-300"
+                        aria-label="Sposta giù"
+                      >
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
                         <p className="text-xs font-medium text-slate-900 truncate">{item.nome}</p>
                         {zonaInfo && <ZonaIcon zonaId={zonaInfo.id} className="text-slate-400 shrink-0" size={12} />}
@@ -4903,21 +5204,49 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
                     </div>
                   </div>
 
-                  <div className="px-6 pt-5 pb-2">
-                    <div className="bg-[#10133a] text-white text-xs font-bold px-3 py-2 rounded-lg uppercase tracking-wide">
-                      Disegnazione lavori
-                    </div>
-                  </div>
+                  {/* R4 #14: due sezioni separate — Materiale e Designazione
+                      lavori — invece di un'unica lista mescolata. R4 #12: la
+                      trasferta non compare mai qui (resta nel PDF interno e
+                      nel totale). Ogni sezione riordina solo al suo interno. */}
+                  {carrello.filter(i => i.kind === 'materiale' || i.kind === 'prodotto').length > 0 && (
+                    <>
+                      <div className="px-6 pt-5 pb-2">
+                        <div className="bg-[#10133a] text-white text-xs font-bold px-3 py-2 rounded-lg uppercase tracking-wide">
+                          Materiale
+                        </div>
+                      </div>
+                      <div className="px-6 pb-3">
+                        <ListaVociOrdinabile
+                          carrello={carrello}
+                          diciture={diciture}
+                          onTestoChange={setTestoVoce}
+                          onReorder={setCarrello}
+                          filtro={(item) => item.kind === 'materiale' || item.kind === 'prodotto'}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {carrello.filter(i => i.kind === 'lavoro').length > 0 && (
+                    <>
+                      <div className="px-6 pt-2 pb-2">
+                        <div className="bg-[#10133a] text-white text-xs font-bold px-3 py-2 rounded-lg uppercase tracking-wide">
+                          Designazione lavori
+                        </div>
+                      </div>
+                      <div className="px-6 pb-3">
+                        <ListaVociOrdinabile
+                          carrello={carrello}
+                          diciture={diciture}
+                          onTestoChange={setTestoVoce}
+                          onReorder={setCarrello}
+                          filtro={(item) => item.kind === 'lavoro'}
+                        />
+                      </div>
+                    </>
+                  )}
 
                   <div className="px-6 pb-5 space-y-4">
-                    {carrello.length > 0 && (
-                      <ListaVociOrdinabile
-                        carrello={carrello}
-                        diciture={diciture}
-                        onTestoChange={setTestoVoce}
-                        onReorder={setCarrello}
-                      />
-                    )}
                     {carrello.length === 0 && (
                       <p className="text-sm text-slate-400 text-center py-4">Nessuna voce ancora aggiunta.</p>
                     )}
@@ -5050,6 +5379,7 @@ function PreventiviPage({ clienti, setClienti, clientiLoading, preventivi, setPr
 /* ============================================================ */
 
 function MaterialiPage({ materiali, setMateriali, materialiLoading }) {
+  const [search, setSearch] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [renamingId, setRenamingId] = useState(null);
@@ -5144,22 +5474,39 @@ function MaterialiPage({ materiali, setMateriali, materialiLoading }) {
     setShowNewForm(false);
   };
 
+  // R4 #5: la lista materiali non aveva nessuna ricerca — con tanti materiali
+  // diventava impossibile trovare qualcosa al volo
+  const materialiFiltrati = materiali.filter(m => m.nome.toLowerCase().includes(search.trim().toLowerCase()));
+
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-5 flex-1 flex flex-col min-h-0">
 
       <div className="app-card overflow-hidden flex-1 flex flex-col">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-slate-900">Materiali grezzi</h2>
             <p className="text-xs text-slate-400 mt-0.5">{materiali.length} voci nel listino</p>
           </div>
           <button
             onClick={() => setShowNewForm(!showNewForm)}
-            className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition-colors shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
             Nuovo materiale
           </button>
+        </div>
+
+        <div className="px-5 py-3 border-b border-slate-100">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cerca un materiale..."
+              className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
+            />
+          </div>
         </div>
 
         {showNewForm && (
@@ -5220,7 +5567,7 @@ function MaterialiPage({ materiali, setMateriali, materialiLoading }) {
         {/* lista a card — su telefono una tabella non si sente mai come
             un'app nativa, meglio righe verticali con tocchi larghi */}
         <div className="lg:hidden divide-y divide-slate-50">
-          {materiali.map((m) => (
+          {materialiFiltrati.map((m) => (
             <div key={m.id} className="px-4 py-3.5 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 {renamingId === m.id ? (
@@ -5288,9 +5635,9 @@ function MaterialiPage({ materiali, setMateriali, materialiLoading }) {
               </div>
             </div>
           ))}
-          {materiali.length === 0 && (
+          {materialiFiltrati.length === 0 && (
             <p className="px-5 py-10 text-center text-sm text-slate-400">
-              {materialiLoading ? 'Caricamento materiali...' : 'Nessun materiale ancora. Aggiungine uno per iniziare il tuo listino.'}
+              {materialiLoading ? 'Caricamento materiali...' : search ? 'Nessun materiale trovato.' : 'Nessun materiale ancora. Aggiungine uno per iniziare il tuo listino.'}
             </p>
           )}
         </div>
@@ -5308,7 +5655,7 @@ function MaterialiPage({ materiali, setMateriali, materialiLoading }) {
               </tr>
             </thead>
             <tbody>
-              {materiali.map((m) => (
+              {materialiFiltrati.map((m) => (
                 <tr key={m.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 transition-colors">
                   <td className="px-5 py-3.5 font-medium text-slate-900">
                     {renamingId === m.id ? (
@@ -5384,10 +5731,10 @@ function MaterialiPage({ materiali, setMateriali, materialiLoading }) {
                   </td>
                 </tr>
               ))}
-              {materiali.length === 0 && (
+              {materialiFiltrati.length === 0 && (
                 <tr>
                   <td colSpan="6" className="px-5 py-10 text-center text-sm text-slate-400">
-                    {materialiLoading ? 'Caricamento materiali...' : 'Nessun materiale ancora. Aggiungine uno per iniziare il tuo listino.'}
+                    {materialiLoading ? 'Caricamento materiali...' : search ? 'Nessun materiale trovato.' : 'Nessun materiale ancora. Aggiungine uno per iniziare il tuo listino.'}
                   </td>
                 </tr>
               )}
